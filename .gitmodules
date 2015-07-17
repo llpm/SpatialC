@@ -1,0 +1,3 @@
+[submodule "ext/bncf"]
+	path = ext/bncf
+	url = https://github.com/BNFC/bnfc

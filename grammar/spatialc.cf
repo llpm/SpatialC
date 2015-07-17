@@ -1,0 +1,72 @@
+PDefs.Program ::= [Def] ;
+
+DefImport.  Def ::= "import" [PackageName] ";" ;
+DefPackage. Def ::= "package" [PackageName] ";" ;
+DefModule.  Def ::= "module" Id "{" [ModDef] "}" ;
+terminator Def "" ;
+
+DefStorage. ModDef ::= Type Id ";" ;
+DefInput.   ModDef ::= "input" Type Id ";" ;
+DefOutput.  ModDef ::= "output" Type Id ";" ;
+DefEvent.   ModDef ::= "event" "(" [EventParam] ")" "{" [Statement] "}" ;
+terminator ModDef "" ;
+
+rules EventParam ::= Type Id ;
+separator EventParam "," ;
+
+VarStmt.    Statement ::= Type Id VarAssignment ;
+AssignStmt. Statement ::= Id "=" Exp ";" ;
+IfStmt.     Statement ::= "if" "(" Exp ")" "{" [Statement] "}" ElseBlock ;
+BlockStmt.  Statement ::= "{" [Statement] "}" ;
+PushStmt.   Statement ::= Id "<-" Exp ";" ;
+terminator Statement "" ;
+
+VarAssign.  VarAssignment ::= "=" Exp ";" ;
+NoVarAssign.VarAssignment ::= ;
+
+Else.       ElseBlock ::= "else" Statement ;
+NoElse.     ElseBlock ::= ;
+
+
+ETrue.   Exp15  ::= "true" ;
+EFalse.  Exp15  ::= "false" ;
+EInt.    Exp15  ::= Integer ;
+EDouble. Exp15  ::= Double ;
+EString. Exp15  ::= String ;
+EId.     Exp15  ::= Id ; 
+
+EParen.  Exp15  ::= "(" Exp ")" ;
+EApp.    Exp15  ::= Exp15 "(" [Arg] ")" ;
+EArrAcc. Exp15  ::= Exp15  "[" Exp "]" ;
+EDot.    Exp15  ::= Exp15  "." Id ;
+
+ETimes.  Exp12  ::= Exp12 "*"  Exp13 ;
+EDiv.    Exp12  ::= Exp12 "/"  Exp13 ;
+EPlus.   Exp11  ::= Exp11 "+"  Exp12 ;
+EMinus.  Exp11  ::= Exp11 "-"  Exp12 ;
+ELt.     Exp9   ::= Exp9  "<"  Exp10 ;
+EGt.     Exp9   ::= Exp9  ">"  Exp10 ;
+ELtEq.   Exp9   ::= Exp9  "<=" Exp10 ;
+EGtEq.   Exp9   ::= Exp9  ">=" Exp10 ;
+EEq.     Exp8   ::= Exp8  "==" Exp9 ;
+ENEq.    Exp8   ::= Exp8  "!=" Exp9 ;
+EAnd.    Exp4   ::= Exp4  "&&" Exp5 ;
+EOr.     Exp3   ::= Exp3  "||" Exp4 ;
+
+coercions Exp 15 ;
+
+rules Arg ::= Exp ;
+separator Arg "," ;
+
+rules PackageName ::= Id ;
+separator PackageName "." ;
+
+token Id ((letter | '_') (letter | digit | '_')*) ;
+
+Object.  Type ::= Id;
+
+
+comment "//" ;
+comment "/*" "*/" ;
+
+entrypoints Program;
