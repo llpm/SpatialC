@@ -3,28 +3,42 @@ PDefs.Program ::= [Def] ;
 DefImport.  Def ::= "import" [PackageName] ";" ;
 DefPackage. Def ::= "package" [PackageName] ";" ;
 DefModule.  Def ::= "module" Id "{" [ModDef] "}" ;
+DefStruct.  Def ::= "struct" Id "{" [StructDef] "}" ;
 terminator Def "" ;
 
 DefStorage. ModDef ::= Type Id ";" ;
 DefInput.   ModDef ::= "input" Type Id ";" ;
 DefOutput.  ModDef ::= "output" Type Id ";" ;
-DefEvent.   ModDef ::= "event" "(" [EventParam] ")" "{" [Statement] "}" ;
+DefEvent.   ModDef ::= "event" "(" [EventParam] ")" Block ;
 terminator ModDef "" ;
 
-rules EventParam ::= Type Id ;
+rules EventParam ::= Id Id ;
 separator EventParam "," ;
+
+DefSubstor. StructDef ::= Type Id ";" ;
+DefFunction.StructDef ::= Type Id "(" [FuncParam] ")" "{" [Statement] "}" ;
+terminator StructDef "" ;
+
+rules FuncParam ::= Type Id ;
+separator FuncParam "," ;
 
 VarStmt.    Statement ::= Type Id VarAssignment ;
 AssignStmt. Statement ::= Id "=" Exp ";" ;
-IfStmt.     Statement ::= "if" "(" Exp ")" "{" [Statement] "}" ElseBlock ;
+IfStmt.     Statement ::= "if" "(" Exp ")" Block ElseBlock ;
 BlockStmt.  Statement ::= "{" [Statement] "}" ;
 PushStmt.   Statement ::= Id "<-" Exp ";" ;
+ReturnStmt. Statement ::= "return" Exp ";" ;
 terminator Statement "" ;
 
 VarAssign.  VarAssignment ::= "=" Exp ";" ;
 NoVarAssign.VarAssignment ::= ;
 
-Else.       ElseBlock ::= "else" Statement ;
+rules Block ::= [BlockAttr] "{" [Statement] "}" ;
+
+rules BlockAttr ::= "atomic" | "noreorder" | "reorder";
+terminator BlockAttr "";
+
+Else.       ElseBlock ::= "else" Block ;
 NoElse.     ElseBlock ::= ;
 
 
@@ -35,8 +49,7 @@ EDouble. Exp15  ::= Double ;
 EString. Exp15  ::= String ;
 EId.     Exp15  ::= Id ; 
 
-EParen.  Exp15  ::= "(" Exp ")" ;
-EApp.    Exp15  ::= Exp15 "(" [Arg] ")" ;
+EApp.    Exp15  ::= Exp15 "(" [Exp] ")" ;
 EArrAcc. Exp15  ::= Exp15  "[" Exp "]" ;
 EDot.    Exp15  ::= Exp15  "." Id ;
 
@@ -53,18 +66,16 @@ ENEq.    Exp8   ::= Exp8  "!=" Exp9 ;
 EAnd.    Exp4   ::= Exp4  "&&" Exp5 ;
 EOr.     Exp3   ::= Exp3  "||" Exp4 ;
 
-coercions Exp 15 ;
+coercions Exp 15;
 
-rules Arg ::= Exp ;
-separator Arg "," ;
+separator Exp "," ;
 
 rules PackageName ::= Id ;
 separator PackageName "." ;
 
 token Id ((letter | '_') (letter | digit | '_')*) ;
 
-Object.  Type ::= Id;
-
+TyName.      Type  ::= Id ;
 
 comment "//" ;
 comment "/*" "*/" ;
