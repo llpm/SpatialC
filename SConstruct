@@ -1,7 +1,6 @@
 import os
 import os.path
 import sys
-from lex_bison import *
 
 AddOption('--cxx', action='store', type='string', dest='cxx', nargs=1, metavar='COMPILER',
 		   help='Use argument as the C++ compiler.')
@@ -29,13 +28,10 @@ env = Environment(
     LIBPATH=LibPaths,
     LINKFLAGS=[]
               + CxxLdFlags
-              + map(lambda x: "-Wl,-rpath=\$$ORIGIN/%s" % x,
-              LibPaths),
+              + map(lambda x: "-Wl,-rpath=\$$ORIGIN/../%s" % x, LibPaths),
     tools = ["default", "doxygen"],
     toolpath = '.'
 )
-add_lex(env)
-add_bison(env)
 
 if GetOption('cxx') != None:
    env.Replace(CXX = GetOption('cxx'))
@@ -43,6 +39,7 @@ if GetOption('cxx') != None:
 libenv = env.Clone()
 spatialc = libenv.SharedLibrary('bin/spatialc',
                                Glob("./frontend/*.cpp") +
+                               Glob("./util/*.cpp") +
                                ["grammar/Absyn.C", "grammar/Printer.C",
                                 "grammar/Parser.C", "grammar/Lexer.C"])
 Default(spatialc)

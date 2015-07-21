@@ -1,58 +1,66 @@
 #include <cstdio>
 
-#include <stdio.h>
-#include <string.h>
-#include "grammar/Parser.H"
-#include "grammar/Printer.H"
-#include "grammar/Absyn.H"
+#include <frontend/translate.hpp>
+#include <frontend/package_set.hpp>
 
-void usage() {
-  printf("usage: Call with one of the following argument combinations:\n");
-  printf("\t--help\t\tDisplay this help message.\n");
-  printf("\t(no arguments)	Parse stdin verbosely.\n");
-  printf("\t(files)\t\tParse content of files verbosely.\n");
-  printf("\t-s (files)\tSilent mode. Parse content of files silently.\n");
-}
+#include <llpm/design.hpp>
+
+using namespace spatialc;
+using namespace llpm;
+using namespace std;
 
 int main(int argc, char** argv) {
-  FILE *input;
-  int quiet = 0;
-  char *filename = NULL;
+    try {
+        Design d;
 
-  if (argc > 1) {
-    if (strcmp(argv[1], "-s") == 0) {
-      quiet = 1;
-      if (argc > 2) {
-        filename = argv[2];
-      } else {
-        input = stdin;
-      }
-    } else {
-      filename = argv[1];
-    }
-  }
+        vector<string> includeDirs;
+        string modName;
 
-  if (filename) {
-    input = fopen(filename, "r");
-    if (!input) {
-      usage();
-      exit(1);
+        po::options_description desc("SpatialC Options");
+        desc.add_options()
+            ("help", "Show this output")
+            ("include,I", po::value< vector<string> >()->multitoken(),
+                  "Include directories (package search roots)")
+            ("module,m", po::value<string>(&modName)->required(),
+                  "Fully qualified name of top module")
+        ;
+        po::positional_options_description pd;
+        pd.add("module", 1);
+
+        desc.add(d.optDesc());
+
+        for (int i=1; i<argc; i++) {
+            if (strcmp(argv[i], "--help") == 0) {
+                cout << desc << "\n";
+                return 1;
+            }
+        }
+
+        po::variables_map vm;
+        po::store(po::command_line_parser(argc, argv)
+                      .options(desc).positional(pd).run(), vm);
+        po::notify(vm);
+        d.notify(vm);
+
+        includeDirs = vm["include"].as<vector<string>>();
+
+        PackageSet ps(includeDirs);
+        DefModule* mod = ps.getModule(modName);
+
+        if (mod == nullptr) {
+            fprintf(stderr, "Could not find module %s\n", modName.c_str());
+            return 2;
+        }
+
+        spatialc::Translator trans(d, ps);
+        llpm::Module* hwMod = trans.translate(mod);
+
+        assert(hwMod != nullptr);
+
+    } catch (Exception& e) {
+        fprintf(stderr, "Caught exception!\n\t%s\n", e.msg.c_str());
+        return 1;
     }
-  } else input = stdin;
-  /* The default entry point is used. For other options see Parser.H */
-  Program *parse_tree = pProgram(input);
-  if (parse_tree)
-  {
-    printf("\nParse Succesful!\n");
-    if (!quiet) {
-      printf("\n[Abstract Syntax]\n");
-      ShowAbsyn *s = new ShowAbsyn();
-      printf("%s\n\n", s->show(parse_tree));
-      printf("[Linearized Tree]\n");
-      PrintAbsyn *p = new PrintAbsyn();
-      printf("%s\n\n", p->print(parse_tree));
-    }
+
     return 0;
-  }
-  return 1;
 }

@@ -1,4 +1,4 @@
-PDefs.Program ::= [Def] ;
+PDefs.Package ::= [Def] ;
 
 DefImport.  Def ::= "import" [PackageName] ";" ;
 DefPackage. Def ::= "package" [PackageName] ";" ;
@@ -80,4 +80,4 @@ TyName.      Type  ::= Id ;
 comment "//" ;
 comment "/*" "*/" ;
 
-entrypoints Program;
+entrypoints Package;
