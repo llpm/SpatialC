@@ -52,7 +52,7 @@ Package* PackageSet::getPackage(std::string pkgName) {
         if (pkgFn[i] == '.')
             pkgFn[i] = '/';
     }
-    pkgFn= pkgName + ".sc";
+    pkgFn = pkgFn + ".sc";
     FILE* pkgFile = _paths.open(pkgFn, "r");
     if (pkgFile == nullptr)
         return nullptr;
