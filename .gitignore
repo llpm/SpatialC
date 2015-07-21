@@ -1,8 +1,12 @@
+/bin
+
 # Compiled Object files
 *.slo
 *.lo
 *.o
+*.os
 *.obj
+*.pyc
 
 # Precompiled Headers
 *.gch
@@ -26,3 +30,6 @@
 *.exe
 *.out
 *.app
+
+# SCons locals
+.sconsign.dblite
