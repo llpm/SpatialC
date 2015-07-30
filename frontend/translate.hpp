@@ -4,8 +4,14 @@
 #include <llpm/design.hpp>
 #include <llpm/module.hpp>
 #include <frontend/package_set.hpp>
+#include <frontend/module.hpp>
+
+#include <frontend/type.hpp>
 
 namespace spatialc {
+
+// Fwd defs.
+class SpatialCModule;
 
 using namespace llpm;
 
@@ -20,6 +26,9 @@ public:
     }
 
     llpm::Module* translate(DefModule* mod);
+
+private:
+    Type getType(std::string typeName, SpatialCModule* ctxt);
 };
 
 }

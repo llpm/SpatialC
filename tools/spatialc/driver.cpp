@@ -54,8 +54,11 @@ int main(int argc, char** argv) {
 
         spatialc::Translator trans(d, ps);
         llpm::Module* hwMod = trans.translate(mod);
-
         assert(hwMod != nullptr);
+
+        d.addModule(hwMod);
+
+        return d.go();
 
     } catch (Exception& e) {
         fprintf(stderr, "Caught exception!\n\t%s\n", e.msg.c_str());
