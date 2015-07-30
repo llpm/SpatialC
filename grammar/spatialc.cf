@@ -12,8 +12,14 @@ DefOutput.  ModDef ::= "output" Type Id ";" ;
 DefEvent.   ModDef ::= "event" "(" [EventParam] ")" Block ;
 terminator ModDef "" ;
 
-rules EventParam ::= Id Id ;
+rules EventParam ::= EventOrCond "->" Id ;
 separator EventParam "," ;
+
+SimpleEvOr. EventOrCond ::= Id ;
+ListEvOr.   EventOrCond ::= "(" [EventOrList] ")" ;
+
+rules EventOrList ::= Id ;
+separator EventOrList "|" ;
 
 DefSubstor. StructDef ::= Type Id ";" ;
 DefFunction.StructDef ::= Type Id "(" [FuncParam] ")" "{" [Statement] "}" ;

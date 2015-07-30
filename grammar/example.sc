@@ -6,10 +6,12 @@ module _aMod1 {
     int7 i7;
     TstObj o;
 
+    input double inDouble;
     input float inFloat;
+    input bool inBool;
     output bool outBool;
 
-    event (inFloat msg) atomic {
+    event (inFloat -> msg) atomic {
         float msgCopy = msg;
         if (msgCopy > 0.0) {
             outBool <- true;
@@ -18,6 +20,10 @@ module _aMod1 {
             //outBool <- msg.bits()[0];
             i = i - (1 * 2 / 2);
         }
+    }
+
+    event ((inDouble | inFloat) -> nMsg,
+           inBool -> bMsg) {
     }
 }
 
