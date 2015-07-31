@@ -9,8 +9,11 @@ terminator Def "" ;
 DefStorage. ModDef ::= Type Id ";" ;
 DefInput.   ModDef ::= "input" Type Id ";" ;
 DefOutput.  ModDef ::= "output" Type Id ";" ;
-DefEvent.   ModDef ::= "event" "(" [EventParam] ")" Block ;
+DefEvent.   ModDef ::= "event" EventName "(" [EventParam] ")" Block ;
 terminator ModDef "" ;
+
+NoEvName.   EventName ::= ;
+EvName.     EventName ::= "\"" Id "\"" ;
 
 rules EventParam ::= EventOrCond "->" Id ;
 separator EventParam "," ;

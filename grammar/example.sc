@@ -22,7 +22,8 @@ module _aMod1 {
         }
     }
 
-    event ((inDouble | inFloat) -> nMsg,
+    event "ComplexEvent" (
+           (inDouble | inFloat) -> nMsg,
            inBool -> bMsg) {
     }
 }

@@ -32,10 +32,19 @@ public:
     ~Type() { }
     
 
-    llvm::Type* llvm() {
+    llvm::Type* llvm() const {
         if (_simple)
             return _simple;
         return _struct->llvm();
+    }
+
+    bool operator==(const Type& t) {
+        return _simple == t._simple &&
+               _struct == t._struct;
+    }
+
+    bool operator!=(const Type& t) {
+        return !(*this == t);
     }
 };
 

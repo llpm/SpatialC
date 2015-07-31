@@ -5,7 +5,15 @@
 #include <frontend/translate.hpp>
 #include <frontend/type.hpp>
 
+namespace llpm {
+// fwd defs
+class Select;
+}
+
 namespace spatialc {
+
+// Fwd defs
+class Event;
 
 class SpatialCModule : public llpm::ContainerModule {
     friend class Translator;
@@ -13,7 +21,10 @@ class SpatialCModule : public llpm::ContainerModule {
     std::map<std::string, llpm::InputPort*>  _namedInputs;
     std::map<std::string, llpm::OutputPort*> _namedOutputs;
     std::map<std::string, llpm::Block*>      _namedStorage;
-    std::map<std::string, Type>       _nameTypes;
+    std::map<std::string, Type>              _nameTypes;
+
+    std::map<llpm::OutputPort*, llpm::Select*> _outputSelects;
+    std::vector<Event*>                        _events;
 
     SpatialCModule(llpm::Design& design, std::string name) : 
         ContainerModule(design, name)
@@ -22,10 +33,16 @@ class SpatialCModule : public llpm::ContainerModule {
 public:
     ~SpatialCModule() { }
 
+    DEF_GET(namedInputs);
+    DEF_GET(namedOutputs);
+    DEF_GET(namedStorage);
+    DEF_GET(nameTypes);
+
 private:
     llpm::InputPort*  addInputPort(Type, std::string name);
     llpm::OutputPort* addOutputPort(Type, std::string name);
     void addStorage(Type, std::string name);
+    void addEvent(Event*);
 };
 
 }

@@ -1,5 +1,6 @@
 #include "translate.hpp"
 #include <frontend/module.hpp>
+#include <frontend/event.hpp>
 #include <frontend/exception.hpp>
 
 #include <regex>
@@ -39,6 +40,14 @@ llpm::Module* Translator::translate(DefModule* modAst) {
             auto ty = getType(tyName, mod);
 
             mod->addOutputPort(ty, id);
+            continue;
+        }
+
+        auto event = dynamic_cast<DefEvent*>(def);
+        if (event != nullptr) {
+            auto ev = Event::create(_design, event, mod);
+            mod->addEvent(ev);
+
             continue;
         }
 
