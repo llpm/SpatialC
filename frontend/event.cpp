@@ -101,8 +101,7 @@ Event::Event(llpm::Design& design, std::string name, SpatialCModule* mod) :
     _mod(mod) {
 }
 
-Context Event::buildInitial(ListEventParam* list) {
-    Context ctxt(this);
+void Event::buildInitial(Context& ctxt, ListEventParam* list) {
     for (auto evParamI: *list) {
         auto evParam = dynamic_cast<EventParam1*>(evParamI);
         assert(evParam != nullptr);
@@ -160,7 +159,6 @@ Context Event::buildInitial(ListEventParam* list) {
     }
 
     ctxt.createJoinSplit(conns());
-    return ctxt;
 }
 
 void Event::scanForOutputs(::Block* blockD) {
@@ -178,16 +176,29 @@ void Event::scanForOutputs(::Block* blockD) {
         auto pushStmt = dynamic_cast<PushStmt*>(stmt);
         if (pushStmt != nullptr) {
             string outName = pushStmt->id_;
-            auto f = _mod->namedOutputs()->find(outName);
-            if (f == _mod->namedOutputs()->end()) {
-                throw SemanticError(
-                    "Cannot find output channel '" + outName + "'!");
-            }
-            auto op = createOutputPort(f->second->type());
-            _outpConnections[pushStmt] = getSink(op);
-            _ioConnections[outName] = op;
 
-            continue;
+            // Look for storage by this name
+            auto fs = _mod->namedStorage()->find(outName);
+            if (fs != _mod->namedStorage()->end()) {
+                auto op = createOutputPort(fs->second->type());
+                _outpConnections[pushStmt] = getSink(op);
+                _ioConnections[outName] = op;
+                continue;
+            }
+
+            // Look for output channel by this name
+            auto fc = _mod->namedOutputs()->find(outName);
+            if (fc != _mod->namedOutputs()->end()) {
+                auto op = createOutputPort(fc->second->type());
+                _outpConnections[pushStmt] = getSink(op);
+                _ioConnections[outName] = op;
+
+                continue;
+            }
+
+            throw SemanticError(
+                "Cannot find output channel or storage for'"
+                + outName + "'!");
         }
     }
 }
@@ -205,7 +216,8 @@ Event* Event::create(llpm::Design& design,
     Event* ev = new Event(design, evName, mod);
 
     // Convert the event list to something usable
-    Context ctxt = ev->buildInitial(eventAst->listeventparam_);
+    Context ctxt(ev);
+    ev->buildInitial(ctxt, eventAst->listeventparam_);
     for (auto v: ctxt.vars) {
         auto ns = new NullSink(v.op->type());
         ev->connect(v.op, ns->din());

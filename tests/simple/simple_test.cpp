@@ -9,6 +9,7 @@ int main() {
     //s->trace("debug.vcd");
     s->reset();
     uint64_t start = s->cycles();
+    s->rst();
 
     for (int32_t i=0; i<5; i++) {
         s->intIn(i);
@@ -21,6 +22,9 @@ int main() {
         printf("in: %u, out: %u, %ld, %u\n", i, j, k, c);
         assert( i == j );
     }
+
+    uint64_t stop = s->cycles();
+    printf("Took %lu cycles to run\n", stop - start);
 
     delete s;
     return 0;

@@ -22,7 +22,8 @@ class Event : public llpm::ContainerModule {
 
     Event(llpm::Design&, std::string name, SpatialCModule* mod);
 
-    Context buildInitial(ListEventParam* list);
+    void addVariables(Context& ctxt);
+    void buildInitial(Context&, ListEventParam* list);
     void processStatement(Context&, Statement*);
     void processStmt(Context&, VarStmt*);
     void processStmt(Context&, AssignStmt*);

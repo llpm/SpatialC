@@ -44,6 +44,13 @@ void SpatialCModule::addStorage(Type ty, std::string name) {
                                 " has invalid name. Name already in use");
     }
     _nameTypes.insert(make_pair(name, ty));
+
+    if (ty.isSimple() || ty.isStruct()) {
+        // Create a register
+        _namedStorage[name] = new Register(ty.llvm());
+    } else {
+        assert(false && "Unsupported storage type");
+    }
 }
 
 void SpatialCModule::addEvent(Event* ev) {
@@ -74,6 +81,20 @@ void SpatialCModule::addEvent(Event* ev) {
             connCount++;
         }
 
+        auto storF = _namedStorage.find(name);
+        if (storF != _namedStorage.end()) {
+            // Output port connection!
+            auto op = dynamic_cast<OutputPort*>(port);
+            assert(op != nullptr);
+            auto mux = storF->second->write()->multiplexer(*conns());
+            assert(mux != nullptr);
+            auto iface = mux->createServer();
+            conns()->connect(op, iface->din());
+            auto ns = new NullSink(iface->dout()->type());
+            conns()->connect(iface->dout(), ns->din());
+            connCount++;
+        }
+
         if (connCount == 0) {
             throw SemanticError(
                 "Could not find I/O '" + name + "' specified by event '"
@@ -88,6 +109,13 @@ void SpatialCModule::addEvent(Event* ev) {
 regex intTypeNameR("u?int(\\d*)");
 
 Type SpatialCModule::getType(string typeName) {
+    if (typeName == "void") {
+        return Type(llvm::Type::getVoidTy(design().context()));
+    } else if (typeName == "bool") {
+        return Type(
+            llvm::Type::getIntNTy(design().context(), 1));
+    }
+
     smatch rResult;
     if (regex_search(typeName, rResult, intTypeNameR)) {
         int width = 32;

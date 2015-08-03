@@ -4,6 +4,7 @@
 #include <llpm/module.hpp>
 #include <frontend/translate.hpp>
 #include <frontend/type.hpp>
+#include <libraries/core/mem_intr.hpp>
 
 namespace llpm {
 // fwd defs
@@ -21,7 +22,7 @@ class SpatialCModule : public llpm::ContainerModule {
 
     std::map<std::string, llpm::InputPort*>  _namedInputs;
     std::map<std::string, llpm::OutputPort*> _namedOutputs;
-    std::map<std::string, llpm::Block*>      _namedStorage;
+    std::map<std::string, llpm::Memory*>     _namedStorage;
     std::map<std::string, Type>              _nameTypes;
 
     std::map<llpm::OutputPort*, llpm::Select*> _outputSelects;
