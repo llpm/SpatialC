@@ -10,11 +10,15 @@ int main() {
     s->reset();
     uint64_t start = s->cycles();
 
-    for (uint32_t i=0; i<5; i++) {
+    for (int32_t i=0; i<5; i++) {
         s->intIn(i);
-        uint32_t j;
-        s->intOut(&j);
-        printf("in: %u, out: %u\n", i, j);
+        int32_t j;
+        int64_t k;
+        bool c;
+        s->intOut((uint32_t*)&j);
+        s->incrOut((uint64_t*)&k);
+        s->cmpOut(&c);
+        printf("in: %u, out: %u, %ld, %u\n", i, j, k, c);
         assert( i == j );
     }
 
