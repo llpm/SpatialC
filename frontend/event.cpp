@@ -1,10 +1,100 @@
 #include "event.hpp"
 #include <frontend/exception.hpp>
 #include <libraries/core/logic_intr.hpp>
+#include <libraries/core/comm_intr.hpp>
+#include <libraries/core/std_library.hpp>
+
+#include <llvm/IR/Constants.h>
+#include <cassert>
 
 using namespace std;
 
 namespace spatialc {
+
+struct Variable {
+    Type ty;
+    llpm::OutputPort* op;
+    std::string name;
+
+    Variable(Type ty, llpm::OutputPort* op, std::string name) :
+        ty(ty),
+        op(op),
+        name(name)
+    { }
+};
+
+struct Context {
+    SpatialCModule* mod;
+    Event* ev;
+    std::vector<Variable> vars;
+
+    Context(SpatialCModule* mod) :
+        mod(mod),
+        ev(nullptr)
+    { }
+
+    Context(Event* ev) :
+        mod(ev->mod()),
+        ev(ev)
+    { }
+
+    llvm::LLVMContext& llvmCtxt() const {
+        return mod->design().context();
+    }
+
+    void push(const Variable& v) {
+        bool found = false;
+        for (auto& ev: vars) {
+            if (ev.name == v.name) {
+                ev = v;
+                found = true;
+            }
+        }
+        if (!found) {
+            vars.push_back(v);
+        }
+    }
+
+    Variable* find(string id) {
+        for (auto& ev: vars) {
+            if (ev.name == id) {
+                return &ev;
+            }
+        }
+        return nullptr;
+    }
+
+    const Variable* find(string id) const {
+        for (auto& ev: vars) {
+            if (ev.name == id) {
+                return &ev;
+            }
+        }
+        return nullptr;
+    }
+
+    const std::vector<llvm::Type*> llvm() const {
+        std::vector<llvm::Type*> ret;
+        for (const auto& v: vars) {
+            ret.push_back(v.ty.llvm());
+        }
+        return std::move(ret);
+    }
+
+    Join* createJoinSplit(ConnectionDB* conns) {
+        auto tyVec = llvm();
+        auto j = new Join(tyVec);
+        auto s = new Split(tyVec);
+        conns->connect(j->dout(), s->din());
+
+        for (size_t i=0; i<tyVec.size(); i++) {
+            auto& v = vars[i];
+            conns->connect(v.op, j->din(i));
+            v.op = s->dout(i);
+        }
+        return j;
+    }
+};
 
 Event::Event(llpm::Design& design, std::string name, SpatialCModule* mod) :
     llpm::ContainerModule(design, name),
@@ -12,7 +102,7 @@ Event::Event(llpm::Design& design, std::string name, SpatialCModule* mod) :
 }
 
 Context Event::buildInitial(ListEventParam* list) {
-    Context ctxt;
+    Context ctxt(this);
     for (auto evParamI: *list) {
         auto evParam = dynamic_cast<EventParam1*>(evParamI);
         assert(evParam != nullptr);
@@ -61,11 +151,12 @@ Context Event::buildInitial(ListEventParam* list) {
         assert(ports.size() == inpNames.size());
         auto inpSel = new Select(ports.size(), types.front().llvm());
         for (size_t i=0; i<inpNames.size(); i++) {
-            _ioConnections[inpNames[i]] = 
-                addInputPort(inpSel->din(i), inpNames[i]);
+            auto ip = addInputPort(inpSel->din(i), inpNames[i]);
+            _ioConnections[inpNames[i]] = ip;
+            _inpConnections[inpNames[i]] = getDriver(ip);
         }
         Variable var(types.front(), inpSel->dout(), paramName);
-        ctxt.vars.push_back(var);
+        ctxt.push(var);
     }
 
     ctxt.createJoinSplit(conns());
@@ -93,11 +184,9 @@ void Event::scanForOutputs(::Block* blockD) {
                     "Cannot find output channel '" + outName + "'!");
             }
             auto op = createOutputPort(f->second->type());
+            _outpConnections[pushStmt] = getSink(op);
             _ioConnections[outName] = op;
 
-            // TODO: Remove this dummy driver
-            auto never = new Never(op->type());
-            conns()->connect(getSink(op), never->dout());
             continue;
         }
     }
@@ -125,8 +214,124 @@ Event* Event::create(llpm::Design& design,
     // Find all the outputs this event uses
     ev->scanForOutputs(eventAst->block_);
 
+    // Process each statement in order, mutating the context as necessary
+    for (auto stmt: *((Block1*)eventAst->block_)->liststatement_) {
+        ev->processStatement(ctxt, stmt);
+    }
 
     return ev;
+}
+
+void Event::processStatement(Context& ctxt, Statement* stmt) {
+    #define TYPE_PROCESS(TY) { \
+        auto tyStmt = dynamic_cast<TY*>(stmt); \
+        if (tyStmt!= nullptr) return processStmt(ctxt, tyStmt); \
+    }
+
+    TYPE_PROCESS(VarStmt);
+    TYPE_PROCESS(AssignStmt);
+    TYPE_PROCESS(IfStmt);
+    TYPE_PROCESS(BlockStmt);
+    TYPE_PROCESS(PushStmt);
+    TYPE_PROCESS(ReturnStmt);
+}
+
+void Event::processStmt(Context& ctxt, VarStmt* stmt) {
+    if (ctxt.find(stmt->id_) != nullptr) {
+        throw CodeError("Cannot redefine " + stmt->id_,
+                        stmt->line_number);
+    }
+    Type ty = _mod->getType(((TyName*)stmt->type_)->id_);
+    auto c = new llpm::Constant(ty.llvm());
+    Variable var(ty, c->dout(), stmt->id_);
+    ctxt.push(var);
+}
+
+void Event::processStmt(Context& ctxt, AssignStmt* stmt) {
+    Variable* old = ctxt.find(stmt->id_);
+    if (old == nullptr) {
+        throw CodeError(
+            "Could not find variable '" + stmt->id_ + "'",
+            stmt->line_number);
+    }
+    old->op = evalExpression(ctxt, stmt->exp_);
+}
+
+void Event::processStmt(Context& ctxt, IfStmt* stmt) {
+    assert(false && "if not implemented yet");
+}
+
+void Event::processStmt(Context& ctxt, BlockStmt* stmt) {
+    // Process each statement in order, mutating the context as necessary
+    for (auto s: *stmt->liststatement_) {
+        processStatement(ctxt, s);
+    }
+}
+
+void Event::processStmt(Context& ctxt, PushStmt* stmt) {
+    auto val = evalExpression(ctxt, stmt->exp_);
+    auto outp = _outpConnections[stmt];
+    assert(outp != nullptr && "Could not find output port");
+    connect(val, outp);
+}
+
+void Event::processStmt(Context& ctxt, ReturnStmt* stmt) {
+    throw CodeError("Return statement not allowed in event!",
+                    stmt->line_number);
+}
+
+struct Expression {
+    static OutputPort* eval(const Context& ctxt, ETrue*) {
+        return (new llpm::Constant(
+                    llvm::Constant::getIntegerValue(
+                        llvm::Type::getInt1Ty(ctxt.llvmCtxt()),
+                        llvm::APInt(1, 1))))->dout();
+    }
+    static OutputPort* eval(const Context& ctxt, EFalse*) {
+        return (new llpm::Constant(
+                    llvm::Constant::getIntegerValue(
+                        llvm::Type::getInt1Ty(ctxt.llvmCtxt()),
+                        llvm::APInt(1, 1))))->dout();
+    }
+    static OutputPort* eval(const Context& ctxt, EInt* exp) {
+        Integer i = exp->integer_;
+        return (new llpm::Constant(
+                    llvm::Constant::getIntegerValue(
+                        llvm::Type::getIntNTy(ctxt.llvmCtxt(),
+                                              sizeof(Integer) / 8),
+                        llvm::APInt(sizeof(Integer) / 8, i))))->dout();
+    }
+    static OutputPort* eval(const Context& ctxt, EDouble* exp) {
+        Double d = exp->double_;
+        return (new llpm::Constant(
+                    llvm::ConstantFP::get(
+                        llvm::Type::getDoubleTy(ctxt.llvmCtxt()),
+                        d)))->dout();
+    }
+    static OutputPort* eval(const Context& ctxt, EId* exp) {
+        auto v = ctxt.find(exp->id_);
+        if (v == nullptr) {
+            throw CodeError("Could not resolve name " + exp->id_,
+                            exp->line_number);
+        }
+        return v->op;
+    }
+};
+
+OutputPort* Event::evalExpression(const Context& ctxt, Exp* exp) {
+    #define TYPE_EXP_PROCESS(TY) { \
+        auto tyExp = dynamic_cast<TY*>(exp); \
+        if (tyExp != nullptr) return Expression::eval(ctxt, tyExp); \
+    }
+
+    TYPE_EXP_PROCESS(ETrue);
+    TYPE_EXP_PROCESS(EFalse);
+    TYPE_EXP_PROCESS(EInt);
+    TYPE_EXP_PROCESS(EDouble);
+    TYPE_EXP_PROCESS(EId);
+
+    throw CodeError("Could not translate expression",
+                    exp->line_number);
 }
 
 } // namespace spatialc

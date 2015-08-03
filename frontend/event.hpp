@@ -6,61 +6,43 @@
 #include <frontend/type.hpp>
 #include <frontend/module.hpp>
 
+// Fwd Defs.
+class PushStmt;
+
 namespace spatialc {
 
-struct Variable {
-    Type ty;
-    llpm::OutputPort* op;
-    std::string name;
-
-    Variable(Type ty, llpm::OutputPort* op, std::string name) :
-        ty(ty),
-        op(op),
-        name(name)
-    { }
-};
-
-struct Context {
-    std::vector<Variable> vars;
-
-    const std::vector<llvm::Type*> llvm() {
-        std::vector<llvm::Type*> ret;
-        for (const auto& v: vars) {
-            ret.push_back(v.ty.llvm());
-        }
-        return std::move(ret);
-    }
-
-    Join* createJoinSplit(ConnectionDB* conns) {
-        auto tyVec = llvm();
-        auto j = new Join(tyVec);
-        auto s = new Split(tyVec);
-        conns->connect(j->dout(), s->din());
-
-        for (size_t i=0; i<tyVec.size(); i++) {
-            auto& v = vars[i];
-            conns->connect(v.op, j->din(i));
-            v.op = s->dout(i);
-        }
-        return j;
-    }
-};
+// Fwd defs.
+struct Context;
 
 class Event : public llpm::ContainerModule {
-    SpatialCModule*                _mod;
-    std::map<std::string, Port*>   _ioConnections;
+    SpatialCModule*                     _mod;
+    std::map<std::string, Port*>        _ioConnections;
+    std::map<std::string, OutputPort*>  _inpConnections;
+    std::map<PushStmt*, InputPort*>     _outpConnections;
 
     Event(llpm::Design&, std::string name, SpatialCModule* mod);
 
     Context buildInitial(ListEventParam* list);
+    void processStatement(Context&, Statement*);
+    void processStmt(Context&, VarStmt*);
+    void processStmt(Context&, AssignStmt*);
+    void processStmt(Context&, IfStmt*);
+    void processStmt(Context&, BlockStmt*);
+    void processStmt(Context&, PushStmt*);
+    void processStmt(Context&, ReturnStmt*);
     void scanForOutputs(::Block*);
+
+    OutputPort* evalExpression(const Context&, Exp*);
 
 public:
     static Event* create(llpm::Design&,
                          DefEvent* eventAst,
                          SpatialCModule* module);
 
+    DEF_GET_NP(inpConnections);
+    DEF_GET_NP(outpConnections);
     DEF_GET_NP(ioConnections);
+    DEF_GET_NP(mod);
 };
 
 } // namespace spatialc

@@ -17,6 +17,7 @@ class Event;
 
 class SpatialCModule : public llpm::ContainerModule {
     friend class Translator;
+    friend class Event;
 
     std::map<std::string, llpm::InputPort*>  _namedInputs;
     std::map<std::string, llpm::OutputPort*> _namedOutputs;
@@ -37,6 +38,8 @@ public:
     DEF_GET(namedOutputs);
     DEF_GET(namedStorage);
     DEF_GET(nameTypes);
+
+    Type getType(std::string typeName);
 
 private:
     llpm::InputPort*  addInputPort(Type, std::string name);

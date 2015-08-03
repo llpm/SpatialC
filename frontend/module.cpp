@@ -5,6 +5,10 @@
 #include <libraries/core/logic_intr.hpp>
 #include <libraries/core/comm_intr.hpp>
 
+#include <regex>
+
+using namespace std;
+
 namespace spatialc {
 
 llpm::InputPort* SpatialCModule::addInputPort(Type ty,
@@ -79,6 +83,24 @@ void SpatialCModule::addEvent(Event* ev) {
         }
     }
     _events.push_back(ev);
+}
+
+regex intTypeNameR("u?int(\\d*)");
+
+Type SpatialCModule::getType(string typeName) {
+    smatch rResult;
+    if (regex_search(typeName, rResult, intTypeNameR)) {
+        int width = 32;
+        auto widthStr = rResult[1].str();
+        if (widthStr.size() > 0) {
+            width = atol(widthStr.c_str());
+        }
+
+        return Type(
+            llvm::Type::getIntNTy(design().context(), width));
+    }
+
+    throw SemanticError("Could not resolve type: " + typeName);
 }
 
 } // namespace spatialc

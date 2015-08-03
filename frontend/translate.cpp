@@ -3,8 +3,6 @@
 #include <frontend/event.hpp>
 #include <frontend/exception.hpp>
 
-#include <regex>
-
 using namespace std;
 
 namespace spatialc {
@@ -17,7 +15,7 @@ llpm::Module* Translator::translate(DefModule* modAst) {
         if (storage != nullptr) {
             string tyName = ((TyName*)storage->type_)->id_;
             string id = storage->id_;
-            auto ty = getType(tyName, mod);
+            auto ty = mod->getType(tyName);
 
             mod->addStorage(ty, id);
             continue;
@@ -27,7 +25,7 @@ llpm::Module* Translator::translate(DefModule* modAst) {
         if (inp != nullptr) {
             string tyName = ((TyName*)inp->type_)->id_;
             string id = inp->id_;
-            auto ty = getType(tyName, mod);
+            auto ty = mod->getType(tyName);
 
             mod->addInputPort(ty, id);
             continue;
@@ -37,7 +35,7 @@ llpm::Module* Translator::translate(DefModule* modAst) {
         if (outp != nullptr) {
             string tyName = ((TyName*)outp->type_)->id_;
             string id = outp->id_;
-            auto ty = getType(tyName, mod);
+            auto ty = mod->getType(tyName);
 
             mod->addOutputPort(ty, id);
             continue;
@@ -55,24 +53,6 @@ llpm::Module* Translator::translate(DefModule* modAst) {
     }
 
     return mod;
-}
-
-regex intTypeNameR("u?int(\\d*)");
-
-Type Translator::getType(string typeName, SpatialCModule* ctxt) {
-    smatch rResult;
-    if (regex_search(typeName, rResult, intTypeNameR)) {
-        int width = 32;
-        auto widthStr = rResult[1].str();
-        if (widthStr.size() > 0) {
-            width = atol(widthStr.c_str());
-        }
-
-        return Type(
-            llvm::Type::getIntNTy(ctxt->design().context(), width));
-    }
-
-    throw SemanticError("Could not resolve type: " + typeName);
 }
 
 }

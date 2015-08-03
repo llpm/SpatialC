@@ -26,9 +26,6 @@ public:
     }
 
     llpm::Module* translate(DefModule* mod);
-
-private:
-    Type getType(std::string typeName, SpatialCModule* ctxt);
 };
 
 }
