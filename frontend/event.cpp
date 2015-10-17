@@ -26,16 +26,13 @@ struct Variable {
 struct Context {
     SpatialCModule* mod;
     Event* ev;
+    OutputPort* controlSignal;
     std::vector<Variable> vars;
-
-    Context(SpatialCModule* mod) :
-        mod(mod),
-        ev(nullptr)
-    { }
 
     Context(Event* ev) :
         mod(ev->mod()),
-        ev(ev)
+        ev(ev),
+        controlSignal(nullptr)
     { }
 
     llvm::LLVMContext& llvmCtxt() const {
@@ -143,7 +140,7 @@ void Event::buildInitial(Context& ctxt, ListEventParam* list) {
             }
 
             types.push_back(tyF->second);
-            ports.push_back(inpF->second); 
+            ports.push_back(inpF->second);
         }
 
         assert(types.size() == ports.size());
@@ -158,7 +155,15 @@ void Event::buildInitial(Context& ctxt, ListEventParam* list) {
         ctxt.push(var);
     }
 
-    ctxt.createJoinSplit(conns());
+    // Create join for starting control/data token
+    auto cdToken = ctxt.createJoinSplit(conns())->dout();
+
+    // Create pure control token
+    auto controlWait = new Wait(llvm::Type::getVoidTy(ctxt.llvmCtxt()));
+    controlWait->newControl(conns(), cdToken);
+    auto controlToken = new Constant(llvm::Type::getVoidTy(ctxt.llvmCtxt()));
+    conns()->connect(controlToken->dout(), controlWait->din());
+    ctxt.controlSignal = controlWait->dout();
 }
 
 void Event::scanForOutputs(::Block* blockD) {
@@ -322,13 +327,35 @@ struct Expression {
                         llvm::Type::getDoubleTy(ctxt.llvmCtxt()),
                         d)))->dout();
     }
+
     static OutputPort* eval(const Context& ctxt, EId* exp) {
         auto v = ctxt.find(exp->id_);
-        if (v == nullptr) {
-            throw CodeError("Could not resolve name " + exp->id_,
-                            exp->line_number);
+        if (v != nullptr) {
+            return v->op;
         }
-        return v->op;
+
+        auto nsF = ctxt.mod->namedStorage()->find(exp->id_);
+        if (nsF != ctxt.mod->namedStorage()->end()) {
+            auto mem = nsF->second;
+            if (!mem->read()->din()->type()->isVoidTy()) {
+                throw CodeError("Cannot access complex memory '"
+                                + exp->id_ + "' by only name. This memory "
+                                " type needs some sort of accessor.");
+            }
+
+            auto ev = ctxt.ev;
+            auto inId = new Identity(mem->read()->respType());
+            std::pair<OutputPort*, InputPort*> iface
+                (ctxt.ev->addOutputPort(ctxt.controlSignal),
+                 ctxt.ev->addInputPort(inId->din()));
+
+            ev->_memConnections[exp->id_].push_back(iface);
+            return inId->dout();
+        }
+
+        throw CodeError("Could not resolve name " + exp->id_,
+                            exp->line_number);
+
     }
 
     template<typename IntOp>

@@ -103,6 +103,23 @@ void SpatialCModule::addEvent(Event* ev) {
             assert(connCount == 1 && "Multiple I/O by the same name?");
         }
     }
+
+    for (auto memPair: ev->memConnections()) {
+        auto name = memPair.first;
+        auto storF = _namedStorage.find(name);
+        if (storF != _namedStorage.end()) {
+            for (auto ifacePair: memPair.second)  {
+                auto mem = storF->second;
+                auto mux = mem->read()->multiplexer(*conns());
+                auto srvr = mux->createServer();
+                conns()->connect(ifacePair.first, srvr->req()->asInput());
+                conns()->connect(srvr->resp()->asOutput(), ifacePair.second);
+            }
+        } else {
+            throw CodeError("Could not find storage: " + name);
+        }
+    }
+
     _events.push_back(ev);
 }
 

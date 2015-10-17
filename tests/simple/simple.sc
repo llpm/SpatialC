@@ -25,6 +25,7 @@ module Simple {
     }
 
     event "cmp" ((dummy | intIn) -> msg) {
-        cmpOut <- (msg == 1) && true;
+        cmpOut <- msg >= counter;
     }
+
 }

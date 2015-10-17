@@ -15,9 +15,13 @@ namespace spatialc {
 struct Context;
 
 class Event : public llpm::ContainerModule {
+    friend struct Expression;
+
     SpatialCModule*                     _mod;
     std::map<std::string, Port*>        _ioConnections;
     std::map<std::string, OutputPort*>  _inpConnections;
+    std::map<std::string, std::vector<std::pair<OutputPort*, InputPort*>>>
+                                        _memConnections;
     std::map<PushStmt*, InputPort*>     _outpConnections;
 
     Event(llpm::Design&, std::string name, SpatialCModule* mod);
@@ -43,6 +47,7 @@ public:
     DEF_GET_NP(inpConnections);
     DEF_GET_NP(outpConnections);
     DEF_GET_NP(ioConnections);
+    DEF_GET_NP(memConnections);
     DEF_GET_NP(mod);
 };
 
