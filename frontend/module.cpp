@@ -81,20 +81,6 @@ void SpatialCModule::addEvent(Event* ev) {
             connCount++;
         }
 
-        auto storF = _namedStorage.find(name);
-        if (storF != _namedStorage.end()) {
-            // Output port connection!
-            auto op = dynamic_cast<OutputPort*>(port);
-            assert(op != nullptr);
-            auto mux = storF->second->write()->multiplexer(*conns());
-            assert(mux != nullptr);
-            auto iface = mux->createServer();
-            conns()->connect(op, iface->din());
-            auto ns = new NullSink(iface->dout()->type());
-            conns()->connect(iface->dout(), ns->din());
-            connCount++;
-        }
-
         if (connCount == 0) {
             throw SemanticError(
                 "Could not find I/O '" + name + "' specified by event '"
@@ -104,7 +90,23 @@ void SpatialCModule::addEvent(Event* ev) {
         }
     }
 
-    for (auto memPair: ev->memConnections()) {
+    for (auto memPair: ev->memWriteConnections()) {
+        auto name = memPair.first;
+        auto storF = _namedStorage.find(name);
+        if (storF != _namedStorage.end()) {
+            for (auto ifacePair: memPair.second)  {
+                auto mem = storF->second;
+                auto mux = mem->write()->multiplexer(*conns());
+                auto srvr = mux->createServer();
+                conns()->connect(ifacePair.first, srvr->req()->asInput());
+                conns()->connect(srvr->resp()->asOutput(), ifacePair.second);
+            }
+        } else {
+            throw CodeError("Could not find storage: " + name);
+        }
+    }
+
+    for (auto memPair: ev->memReadConnections()) {
         auto name = memPair.first;
         auto storF = _namedStorage.find(name);
         if (storF != _namedStorage.end()) {

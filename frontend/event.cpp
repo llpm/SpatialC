@@ -185,9 +185,7 @@ void Event::scanForOutputs(::Block* blockD) {
             // Look for storage by this name
             auto fs = _mod->namedStorage()->find(outName);
             if (fs != _mod->namedStorage()->end()) {
-                auto op = createOutputPort(fs->second->type());
-                _outpConnections[pushStmt] = getSink(op);
-                _ioConnections[outName] = op;
+                // Do output stuff later on
                 continue;
             }
 
@@ -286,10 +284,37 @@ void Event::processStmt(Context& ctxt, BlockStmt* stmt) {
 }
 
 void Event::processStmt(Context& ctxt, PushStmt* stmt) {
+    auto outName = stmt->id_;
     auto val = evalExpression(ctxt, stmt->exp_);
-    auto outp = _outpConnections[stmt];
-    assert(outp != nullptr && "Could not find output port");
-    connect(val, outp);
+    auto outpF = _outpConnections.find(stmt);
+    if (outpF != _outpConnections.end()) {
+        auto outp = _outpConnections[stmt];
+        connect(val, outp);
+        return;
+    }
+
+    auto memF = ctxt.mod->namedStorage()->find(outName);
+    if (memF != ctxt.mod->namedStorage()->end()) {
+        auto mem = memF->second;
+        if (mem->write()->din()->type() != val->type()) {
+            throw CodeError("Type for memory does not match expression!",
+                            stmt->line_number);
+        }
+
+        auto ev = ctxt.ev;
+        auto inId = new Identity(mem->write()->respType());
+        std::pair<OutputPort*, InputPort*> iface
+            (ctxt.ev->addOutputPort(val),
+             ctxt.ev->addInputPort(inId->din()));
+
+        ev->_memWriteConnections[outName].push_back(iface);
+        // TODO: Should we do something reasonable with the response?
+        auto sink = new NullSink(iface.second->type());
+        conns()->connect(ev->getDriver(iface.second), sink->din());
+        return;
+    }
+
+    throw CodeError("Could not find output!", stmt->line_number);
 }
 
 void Event::processStmt(Context& ctxt, ReturnStmt* stmt) {
@@ -349,7 +374,7 @@ struct Expression {
                 (ctxt.ev->addOutputPort(ctxt.controlSignal),
                  ctxt.ev->addInputPort(inId->din()));
 
-            ev->_memConnections[exp->id_].push_back(iface);
+            ev->_memReadConnections[exp->id_].push_back(iface);
             return inId->dout();
         }
 

@@ -21,7 +21,9 @@ class Event : public llpm::ContainerModule {
     std::map<std::string, Port*>        _ioConnections;
     std::map<std::string, OutputPort*>  _inpConnections;
     std::map<std::string, std::vector<std::pair<OutputPort*, InputPort*>>>
-                                        _memConnections;
+                                        _memWriteConnections;
+    std::map<std::string, std::vector<std::pair<OutputPort*, InputPort*>>>
+                                        _memReadConnections;
     std::map<PushStmt*, InputPort*>     _outpConnections;
 
     Event(llpm::Design&, std::string name, SpatialCModule* mod);
@@ -47,7 +49,8 @@ public:
     DEF_GET_NP(inpConnections);
     DEF_GET_NP(outpConnections);
     DEF_GET_NP(ioConnections);
-    DEF_GET_NP(memConnections);
+    DEF_GET_NP(memWriteConnections);
+    DEF_GET_NP(memReadConnections);
     DEF_GET_NP(mod);
 };
 
