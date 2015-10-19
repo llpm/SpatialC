@@ -18,7 +18,9 @@ int main() {
         } else {
             s->smallNum(&j);
         }
-        printf("in: %u, out: %u\n", i, j);
+        uint32_t m;
+        s->modified(&m);
+        printf("in: %u, out: %u, m: %u\n", i, j, m);
         assert( i == j );
     }
     s->reqCounter();

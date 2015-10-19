@@ -85,6 +85,9 @@ struct Context {
         auto found = update(v);
         if (!found) {
             vars.push_back(v);
+            printf("push %s not found, appending\n", v.name.c_str());
+        } else {
+            printf("push %s not found, appending\n", v.name.c_str());
         }
     }
 
@@ -133,9 +136,12 @@ struct Context {
         for (auto& child: children) {
             for (auto& cvar: child->vars) {
                 auto var = find(cvar.name);
-                if (var == nullptr)
-                    continue;
-                updateVars[*var].insert(child->idx);
+                if (var != nullptr) {
+                    updateVars[*var].insert(child->idx);
+                    printf("UFC found cvar: %s\n", cvar.name.c_str());
+                } else {
+                    printf("UFC not found cvar: %s\n", cvar.name.c_str());
+                }
             }
         }
 
@@ -144,6 +150,8 @@ struct Context {
             std::set<unsigned> idxs = viPair.second;
             Variable var = viPair.first;
             auto def = var.op;
+
+            printf("UFC Var: %s\n", var.name.c_str());
 
             SparseMultiplexer* sm =
                 new SparseMultiplexer(
@@ -409,8 +417,16 @@ void Event::processStmt(Context& ctxt, VarStmt* stmt) {
                         stmt->line_number);
     }
     Type ty = _mod->getType(((TyName*)stmt->type_)->id_);
-    auto c = new llpm::Constant(ty.llvm());
-    Variable var(ty, c->dout(), stmt->id_);
+    OutputPort* op;
+
+    auto assignment = dynamic_cast<VarAssign*>(stmt->varassignment_);
+    if (assignment != nullptr) {
+        op = evalExpression(ctxt, assignment->exp_);
+    } else {
+        auto c = new llpm::Constant(ty.llvm());
+        op = c->dout();
+    }
+    Variable var(ty, op, stmt->id_);
     ctxt.push(var);
 }
 
@@ -421,7 +437,9 @@ void Event::processStmt(Context& ctxt, AssignStmt* stmt) {
             "Could not find variable '" + stmt->id_ + "'",
             stmt->line_number);
     }
-    old->op = evalExpression(ctxt, stmt->exp_);
+    Variable nvar = *old;
+    nvar.op = evalExpression(ctxt, stmt->exp_);
+    ctxt.push(nvar);
 }
 
 void Event::processStmt(Context& ctxt, IfStmt* stmt) {

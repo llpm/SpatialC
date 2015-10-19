@@ -4,6 +4,7 @@ module Simple {
     input int valueIn;
     output int largeNum;
     output int smallNum;
+    output int modified;
 
     input void reqCounter;
     output int largeCount;
@@ -17,6 +18,14 @@ module Simple {
         } else {
             smallNum <- msg;
         }
+    }
+
+    event "modify" (valueIn -> msg) {
+        int sv = 0;
+        if (msg > 25) {
+            sv = 1;
+        }
+        modified <- sv;
     }
 
     event (reqCounter -> msg) {
