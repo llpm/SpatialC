@@ -3,6 +3,7 @@
 #include <libraries/core/logic_intr.hpp>
 #include <libraries/core/comm_intr.hpp>
 #include <libraries/core/std_library.hpp>
+#include <libraries/ext/mux_route.hpp>
 
 #include <llvm/IR/Constants.h>
 #include <cassert>
@@ -21,25 +22,51 @@ struct Variable {
         op(op),
         name(name)
     { }
+
+    bool operator<(const Variable& v) const {
+        return this->name < v.name;
+    }
+
+    bool operator==(const Variable& v) const {
+        return this->name == v.name;
+    }
 };
 
 struct Context {
+    Context* parent;
     SpatialCModule* mod;
     Event* ev;
     OutputPort* controlSignal;
+    OutputPort* clause;
+    uint32_t    idx;
+    OutputPort* totalBinaryClause;
     std::vector<Variable> vars;
 
-    Context(Event* ev) :
+    Context(Context& parent, OutputPort* clause, uint32_t idx) :
+        parent(&parent),
+        mod(parent.mod),
+        ev(parent.ev),
+        controlSignal(parent.controlSignal),
+        clause(clause),
+        idx(idx),
+        totalBinaryClause(nullptr)
+    { }
+
+
+    Context(Event* ev, OutputPort* cntrl) :
+        parent(nullptr),
         mod(ev->mod()),
         ev(ev),
-        controlSignal(nullptr)
+        controlSignal(cntrl),
+        clause(nullptr),
+        totalBinaryClause(nullptr)
     { }
 
     llvm::LLVMContext& llvmCtxt() const {
         return mod->design().context();
     }
 
-    void push(const Variable& v) {
+    bool update(const Variable& v) {
         bool found = false;
         for (auto& ev: vars) {
             if (ev.name == v.name) {
@@ -47,6 +74,15 @@ struct Context {
                 found = true;
             }
         }
+        if (found)
+            return true;
+        if (parent != nullptr && clause == nullptr)
+            return parent->update(v);
+        return false;
+    }
+
+    void push(const Variable& v) {
+        auto found = update(v);
         if (!found) {
             vars.push_back(v);
         }
@@ -58,6 +94,9 @@ struct Context {
                 return &ev;
             }
         }
+        if (parent != nullptr) {
+            return parent->find(id);
+        }
         return nullptr;
     }
 
@@ -67,7 +106,108 @@ struct Context {
                 return &ev;
             }
         }
+        if (parent != nullptr) {
+            return parent->find(id);
+        }
         return nullptr;
+    }
+
+    void updateFromChildren(std::vector<Context*> children) {
+        if (children.size() == 0)
+            return;
+
+        std::set<unsigned> idxs;
+        OutputPort* clause = nullptr;
+        for (auto c: children) {
+            if (clause == nullptr) {
+                clause = c->clause;
+            } else {
+                assert(clause == c->clause && "All children must have same clause!");
+            }
+            idxs.insert(c->idx);
+        }
+        assert(children.size() == idxs.size() && "All children must have unique idxs");
+
+        // Find variables to get updated
+        std::map<Variable, std::set<unsigned>> updateVars;
+        for (auto& child: children) {
+            for (auto& cvar: child->vars) {
+                auto var = find(cvar.name);
+                if (var == nullptr)
+                    continue;
+                updateVars[*var].insert(child->idx);
+            }
+        }
+
+        // For each variable being updated, create a sparse multiplexer
+        for (const auto& viPair: updateVars) {
+            std::set<unsigned> idxs = viPair.second;
+            Variable var = viPair.first;
+            auto def = var.op;
+
+            SparseMultiplexer* sm =
+                new SparseMultiplexer(
+                    clause->type(),
+                    def->type(),
+                    idxs);
+
+            ConnectionDB* conns = ev->conns();
+            conns->connect(sm->getSelector(*conns), clause);
+            conns->connect(sm->getDefault(*conns), def);
+            for (auto child: children) {
+                if (idxs.count(child->idx) > 0) {
+                    auto cvar = child->find(var.name);
+                    assert(cvar != nullptr);
+                    conns->connect(sm->getInput(*conns, child->idx), cvar->op);
+                }
+            }
+
+            var.op = sm->dout();
+            update(var);
+        }
+    }
+
+    // Build a clause which outputs true/false, true when this context's clause
+    // and all parent's clauses are true
+    OutputPort* buildTotalBinaryClause(ConnectionDB* conns) {
+        if (totalBinaryClause != nullptr) {
+            // Use a cached copy if available
+            return totalBinaryClause;
+        }
+
+        if (parent == nullptr && clause == nullptr) {
+            //We are top level and unconditional. Build 'true' waiting for control sig
+            auto trueConst = new Constant(llvm::ConstantInt::getTrue(llvmCtxt()));
+            auto wait = new Wait(trueConst->dout()->type());
+            conns->connect(trueConst->dout(), wait->din());
+            wait->newControl(conns, controlSignal);
+            totalBinaryClause = wait->dout();
+            return totalBinaryClause;
+        }
+
+        if (parent == nullptr && clause != nullptr) {
+            return clause;
+        }
+
+        assert(parent != nullptr);
+        auto parentbc = parent->buildTotalBinaryClause(conns);
+        if (clause == nullptr) {
+            return parentbc;
+        }
+
+        auto andLogic = new Bitwise(2, parentbc->type(), Bitwise::AND);
+        auto localEq = new IntCompare(clause->type(), clause->type(),
+                                      IntCompare::EQ, false);
+        auto idxConst =
+            new Constant(llvm::ConstantInt::get(clause->type(), idx, false));
+        conns->connect(localEq->din()->join(*conns)->din(0), clause);
+        conns->connect(localEq->din()->join(*conns)->din(1), idxConst->dout());
+
+        conns->connect(andLogic->din()->join(*conns)->din(0), parentbc);
+        conns->connect(andLogic->din()->join(*conns)->din(1), localEq->dout());
+
+        totalBinaryClause = andLogic->dout();
+        return totalBinaryClause;
     }
 
     const std::vector<llvm::Type*> llvm() const {
@@ -148,7 +288,7 @@ void Event::buildInitial(Context& ctxt, ListEventParam* list) {
         auto inpSel = new Select(ports.size(), types.front().llvm());
         for (size_t i=0; i<inpNames.size(); i++) {
             auto ip = addInputPort(inpSel->din(i), inpNames[i]);
-            _ioConnections[inpNames[i]] = ip;
+            _ioConnections[inpNames[i]].insert(ip);
             _inpConnections[inpNames[i]] = getDriver(ip);
         }
         Variable var(types.front(), inpSel->dout(), paramName);
@@ -173,8 +313,20 @@ void Event::scanForOutputs(::Block* blockD) {
     for (auto stmt: *block->liststatement_) {
         auto blockStmt = dynamic_cast<BlockStmt*>(stmt);
         if (blockStmt != nullptr) {
-            ::Block1 b(nullptr, blockStmt->liststatement_);
+            auto stmtList = new ListStatement();
+            *stmtList = *blockStmt->liststatement_;
+            ::Block1 b(nullptr, stmtList);
             scanForOutputs(&b);
+            continue;
+        }
+
+        auto ifStmt = dynamic_cast<IfStmt*>(stmt);
+        if (ifStmt != nullptr) {
+            scanForOutputs(ifStmt->block_);
+            auto elseBlock = dynamic_cast<Else*>(ifStmt->elseblock_);
+            if (elseBlock != nullptr) {
+                scanForOutputs(elseBlock->block_);
+            }
             continue;
         }
 
@@ -194,7 +346,7 @@ void Event::scanForOutputs(::Block* blockD) {
             if (fc != _mod->namedOutputs()->end()) {
                 auto op = createOutputPort(fc->second->type());
                 _outpConnections[pushStmt] = getSink(op);
-                _ioConnections[outName] = op;
+                _ioConnections[outName].insert(op);
 
                 continue;
             }
@@ -219,7 +371,7 @@ Event* Event::create(llpm::Design& design,
     Event* ev = new Event(design, evName, mod);
 
     // Convert the event list to something usable
-    Context ctxt(ev);
+    Context ctxt(ev, nullptr);
     ev->buildInitial(ctxt, eventAst->listeventparam_);
     for (auto v: ctxt.vars) {
         auto ns = new NullSink(v.op->type());
@@ -273,13 +425,31 @@ void Event::processStmt(Context& ctxt, AssignStmt* stmt) {
 }
 
 void Event::processStmt(Context& ctxt, IfStmt* stmt) {
-    assert(false && "if not implemented yet");
+    OutputPort* clause = evalExpression(ctxt, stmt->exp_);
+    assert(clause != nullptr);
+
+    // Process if block
+    Context ifCtxt(ctxt, clause, 1);
+    for (auto bstmt: *((Block1*)stmt->block_)->liststatement_) {
+        processStatement(ifCtxt, bstmt);
+    }
+
+    Context elseCtxt (ctxt, clause, 0);
+    Else* elseBlock = dynamic_cast<Else*>(stmt->elseblock_);
+    if (elseBlock) {
+        for (auto bstmt: *((Block1*)elseBlock->block_)->liststatement_) {
+            processStatement(elseCtxt, bstmt);
+        }
+    }
+
+    ctxt.updateFromChildren({&ifCtxt, &elseCtxt});
 }
 
 void Event::processStmt(Context& ctxt, BlockStmt* stmt) {
     // Process each statement in order, mutating the context as necessary
+    Context blockCtxt(ctxt);
     for (auto s: *stmt->liststatement_) {
-        processStatement(ctxt, s);
+        processStatement(blockCtxt, s);
     }
 }
 
@@ -289,7 +459,13 @@ void Event::processStmt(Context& ctxt, PushStmt* stmt) {
     auto outpF = _outpConnections.find(stmt);
     if (outpF != _outpConnections.end()) {
         auto outp = _outpConnections[stmt];
-        connect(val, outp);
+        auto rtr = new Router(2, val->type());
+        connect(val, rtr->din()->join(*conns(), 1));
+        connect(ctxt.buildTotalBinaryClause(conns()),
+                rtr->din()->join(*conns(), 0));
+        connect(rtr->dout(1), outp);
+        auto ns = new NullSink(rtr->dout(0)->type());
+        connect(rtr->dout(0), ns->din());
         return;
     }
 

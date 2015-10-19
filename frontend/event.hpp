@@ -17,14 +17,14 @@ struct Context;
 class Event : public llpm::ContainerModule {
     friend struct Expression;
 
-    SpatialCModule*                     _mod;
-    std::map<std::string, Port*>        _ioConnections;
-    std::map<std::string, OutputPort*>  _inpConnections;
+    SpatialCModule*                        _mod;
+    std::map<std::string, std::set<Port*>> _ioConnections;
+    std::map<std::string, OutputPort*>     _inpConnections;
     std::map<std::string, std::vector<std::pair<OutputPort*, InputPort*>>>
-                                        _memWriteConnections;
+                                           _memWriteConnections;
     std::map<std::string, std::vector<std::pair<OutputPort*, InputPort*>>>
-                                        _memReadConnections;
-    std::map<PushStmt*, InputPort*>     _outpConnections;
+                                           _memReadConnections;
+    std::map<PushStmt*, InputPort*>        _outpConnections;
 
     Event(llpm::Design&, std::string name, SpatialCModule* mod);
 

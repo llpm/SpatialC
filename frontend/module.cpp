@@ -56,37 +56,39 @@ void SpatialCModule::addStorage(Type ty, std::string name) {
 void SpatialCModule::addEvent(Event* ev) {
     for (auto npPair : ev->ioConnections()) {
         auto name = npPair.first;
-        auto port = npPair.second;
+        auto ports = npPair.second;
         
         int connCount = 0;
 
         auto inpF = _namedInputs.find(name);
         if (inpF != _namedInputs.end()) {
             // Input port connection!
-            auto ip = dynamic_cast<InputPort*>(port);
-            assert(ip != nullptr);
-            auto driver = getDriver(inpF->second);
-            conns()->connect(driver, ip);
-            connCount++;
+            for (auto port: ports) {
+                auto ip = dynamic_cast<InputPort*>(port);
+                assert(ip != nullptr);
+                auto driver = getDriver(inpF->second);
+                conns()->connect(driver, ip);
+                connCount++;
+            }
         }
 
         auto outpF = _namedOutputs.find(name);
         if (outpF != _namedOutputs.end()) {
             // Output port connection!
-            auto op = dynamic_cast<OutputPort*>(port);
-            assert(op != nullptr);
-            auto sel = _outputSelects[outpF->second];
-            assert(sel != nullptr);
-            conns()->connect(op, sel->createInput());
-            connCount++;
+            for (auto port: ports) {
+                auto op = dynamic_cast<OutputPort*>(port);
+                assert(op != nullptr);
+                auto sel = _outputSelects[outpF->second];
+                assert(sel != nullptr);
+                conns()->connect(op, sel->createInput());
+                connCount++;
+            }
         }
 
         if (connCount == 0) {
             throw SemanticError(
                 "Could not find I/O '" + name + "' specified by event '"
                 + ev->name() + "'.");
-        } else {
-            assert(connCount == 1 && "Multiple I/O by the same name?");
         }
     }
 
