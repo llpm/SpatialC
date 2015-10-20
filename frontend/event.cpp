@@ -439,6 +439,7 @@ void Event::processStmt(Context& ctxt, AssignStmt* stmt) {
     }
     Variable nvar = *old;
     nvar.op = evalExpression(ctxt, stmt->exp_);
+    nvar.op = truncOrExtend(nvar.op, old->op->type());
     ctxt.push(nvar);
 }
 
@@ -471,12 +472,35 @@ void Event::processStmt(Context& ctxt, BlockStmt* stmt) {
     }
 }
 
+/**
+ * Automatically truncate or extend ints to make ports match. This is done in
+ * pushes and assignments automatically and without warning.
+ */
+OutputPort* Event::truncOrExtend(OutputPort* op, llvm::Type* ty) {
+    if (ty->isIntegerTy() && op->type()->isIntegerTy() &&
+            ty->getIntegerBitWidth() != op->type()->getIntegerBitWidth()) {
+        int diff = ty->getIntegerBitWidth() - op->type()->getIntegerBitWidth();
+        Function* func = nullptr;
+        if (diff > 0) {
+            func = new IntExtend((unsigned)diff, false, op->type());
+        } else {
+            func = new IntTruncate((unsigned)(diff * -1), op->type());
+        }
+        conns()->connect(op, func->din());
+        return func->dout();
+    } else {
+        return op;
+    }
+}
+
 void Event::processStmt(Context& ctxt, PushStmt* stmt) {
     auto outName = stmt->id_;
     auto val = evalExpression(ctxt, stmt->exp_);
+
     auto outpF = _outpConnections.find(stmt);
     if (outpF != _outpConnections.end()) {
         auto outp = _outpConnections[stmt];
+        val = truncOrExtend(val, outp->type());
         auto rtr = new Router(2, val->type());
         connect(val, rtr->din()->join(*conns(), 1));
         connect(ctxt.buildTotalBinaryClause(conns()),
@@ -490,6 +514,7 @@ void Event::processStmt(Context& ctxt, PushStmt* stmt) {
     auto memF = ctxt.mod->namedStorage()->find(outName);
     if (memF != ctxt.mod->namedStorage()->end()) {
         auto mem = memF->second;
+        val = truncOrExtend(val, mem->write()->din()->type());
         if (mem->write()->din()->type() != val->type()) {
             throw CodeError("Type for memory does not match expression!",
                             stmt->line_number);
