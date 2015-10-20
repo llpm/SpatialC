@@ -114,9 +114,6 @@ public:
         auto found = update(v);
         if (!found) {
             vars.push_back(v);
-            printf("push %s not found, appending\n", v.name.c_str());
-        } else {
-            printf("push %s not found, appending\n", v.name.c_str());
         }
     }
 
@@ -167,9 +164,6 @@ public:
                 auto var = find(cvar.name);
                 if (var != nullptr) {
                     updateVars[*var].insert(child->idx);
-                    printf("UFC found cvar: %s\n", cvar.name.c_str());
-                } else {
-                    printf("UFC not found cvar: %s\n", cvar.name.c_str());
                 }
             }
         }
@@ -179,8 +173,6 @@ public:
             std::set<unsigned> idxs = viPair.second;
             Variable var = viPair.first;
             auto def = var.op;
-
-            printf("UFC Var: %s\n", var.name.c_str());
 
             SparseMultiplexer* sm =
                 new SparseMultiplexer(
@@ -207,7 +199,6 @@ public:
     // Build a clause which outputs true/false, true when this context's clause
     // and all parent's clauses are true
     OutputPort* buildTotalBinaryClause(ConnectionDB* conns) {
-        printf("btbc: %p %p %p %p %p\n", this, totalBinaryClause, parent, controlSignal, clause);
         if (totalBinaryClause != nullptr) {
             // Use a cached copy if available
             return totalBinaryClause;
@@ -501,7 +492,6 @@ void Event::processStmt(Context& ctxt, BlockStmt* stmt) {
 }
 
 void Event::processBlock(Context& ctxt, ::Block* blockSorta) {
-    printf("block start %u\n", blockSorta->line_number);
     auto block = dynamic_cast<Block1*>(blockSorta);
     assert(block != nullptr);
 
@@ -550,7 +540,6 @@ void Event::processBlock(Context& ctxt, ::Block* blockSorta) {
         // destroyed. So I'm not cleaning it up!
     }
 
-    printf("block end %u\n", blockSorta->line_number);
 }
 
 /**
