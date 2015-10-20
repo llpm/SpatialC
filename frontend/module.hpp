@@ -22,10 +22,12 @@ class SpatialCModule : public llpm::ContainerModule {
 
     std::map<std::string, llpm::InputPort*>  _namedInputs;
     std::map<std::string, llpm::OutputPort*> _namedOutputs;
+    std::map<std::string, llpm::Identity*>   _namedInternal;
     std::map<std::string, llpm::Memory*>     _namedStorage;
     std::map<std::string, Type>              _nameTypes;
 
     std::map<llpm::OutputPort*, llpm::Select*> _outputSelects;
+    std::map<llpm::Identity*,   llpm::Select*> _internalSelects;
     std::vector<Event*>                        _events;
 
     SpatialCModule(llpm::Design& design, std::string name) : 
@@ -38,6 +40,7 @@ public:
     DEF_GET(namedInputs);
     DEF_GET(namedOutputs);
     DEF_GET(namedStorage);
+    DEF_GET(namedInternal);
     DEF_GET(nameTypes);
 
     Type getType(std::string typeName);
@@ -45,6 +48,7 @@ public:
 private:
     llpm::InputPort*  addInputPort(Type, std::string name);
     llpm::OutputPort* addOutputPort(Type, std::string name);
+    llpm::Identity*   addInternalPort(Type, std::string name);
     void addStorage(Type, std::string name);
     void addEvent(Event*);
 };

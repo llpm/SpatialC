@@ -41,6 +41,16 @@ llpm::Module* Translator::translate(DefModule* modAst) {
             continue;
         }
 
+        auto intp = dynamic_cast<DefInternal*>(def);
+        if (intp != nullptr) {
+            string tyName = ((TyName*)intp->type_)->id_;
+            string id = intp->id_;
+            auto ty = mod->getType(tyName);
+
+            mod->addInternalPort(ty, id);
+            continue;
+        }
+
         auto event = dynamic_cast<DefEvent*>(def);
         if (event != nullptr) {
             auto ev = Event::create(_design, event, mod);

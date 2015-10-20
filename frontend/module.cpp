@@ -38,6 +38,21 @@ llpm::OutputPort* SpatialCModule::addOutputPort(Type ty,
     return op;
 }
 
+llpm::Identity* SpatialCModule::addInternalPort(Type ty,
+                                                std::string name) {
+    if (_nameTypes.count(name) > 0) {
+        throw new SemanticError("internal port " + name +
+                                " has invalid name. Name already in use");
+    }
+    _nameTypes.insert(make_pair(name, ty));
+    auto id = new Identity(ty.llvm());
+    _namedInternal[name] = id;
+    auto sel = new Select(0, ty.llvm());
+    conns()->connect(sel->dout(), id->din());
+    _internalSelects[id] = sel;
+    return id;
+}
+
 void SpatialCModule::addStorage(Type ty, std::string name) {
     if (_nameTypes.count(name) > 0) {
         throw new SemanticError("storage " + name +
@@ -82,6 +97,27 @@ void SpatialCModule::addEvent(Event* ev) {
                 assert(sel != nullptr);
                 conns()->connect(op, sel->createInput());
                 connCount++;
+            }
+        }
+
+        auto intpF = _namedInternal.find(name);
+        if (intpF != _namedInternal.end()) {
+            // Internal port connection!
+            auto id = intpF->second;
+            auto sel = _internalSelects[id];
+            assert(sel != nullptr);
+            for (auto port: ports) {
+                auto op = port->asOutput();
+                if (op != nullptr) {
+                    conns()->connect(op, sel->createInput());
+                    connCount++;
+                }
+
+                auto ip = port->asInput();
+                if (ip != nullptr) {
+                    conns()->connect(ip, id->dout());
+                    connCount++;
+                }
             }
         }
 

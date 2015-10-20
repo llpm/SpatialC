@@ -270,15 +270,12 @@ void Event::buildInitial(Context& ctxt, ListEventParam* list) {
         assert(inpNames.size() > 0);
 
         vector<Type> types;
-        vector<InputPort*> ports;
         for (auto inpName: inpNames) {
             auto tyF = _mod->nameTypes()->find(inpName);
             if (tyF == _mod->nameTypes()->end()) {
                 throw SemanticError(
                     "Could not locate input '" + inpName + "'!");
             }
-            auto inpF = _mod->namedInputs()->find(inpName);
-            assert(inpF != _mod->namedInputs()->end());
 
             if (types.size() > 0) {
                 if (*types.begin() != tyF->second) {
@@ -288,12 +285,10 @@ void Event::buildInitial(Context& ctxt, ListEventParam* list) {
             }
 
             types.push_back(tyF->second);
-            ports.push_back(inpF->second);
         }
 
-        assert(types.size() == ports.size());
-        assert(ports.size() == inpNames.size());
-        auto inpSel = new Select(ports.size(), types.front().llvm());
+        assert(types.size() == inpNames.size());
+        auto inpSel = new Select(types.size(), types.front().llvm());
         for (size_t i=0; i<inpNames.size(); i++) {
             auto ip = addInputPort(inpSel->din(i), inpNames[i]);
             _ioConnections[inpNames[i]].insert(ip);
@@ -353,6 +348,16 @@ void Event::scanForOutputs(::Block* blockD) {
             auto fc = _mod->namedOutputs()->find(outName);
             if (fc != _mod->namedOutputs()->end()) {
                 auto op = createOutputPort(fc->second->type());
+                _outpConnections[pushStmt] = getSink(op);
+                _ioConnections[outName].insert(op);
+
+                continue;
+            }
+
+            // Look for internal channel by this name
+            auto fi = _mod->namedInternal()->find(outName);
+            if (fi != _mod->namedInternal()->end()) {
+                auto op = createOutputPort(fi->second->din()->type());
                 _outpConnections[pushStmt] = getSink(op);
                 _ioConnections[outName].insert(op);
 

@@ -9,6 +9,7 @@ terminator Def "" ;
 DefStorage. ModDef ::= Type Id ";" ;
 DefInput.   ModDef ::= "input" Type Id ";" ;
 DefOutput.  ModDef ::= "output" Type Id ";" ;
+DefInternal.ModDef ::= "internal" Type Id ";" ;
 DefEvent.   ModDef ::= "event" EventName "(" [EventParam] ")" Block ;
 terminator ModDef "" ;
 
