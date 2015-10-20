@@ -62,7 +62,9 @@ void SpatialCModule::addStorage(Type ty, std::string name) {
 
     if (ty.isSimple() || ty.isStruct()) {
         // Create a register
-        _namedStorage[name] = new Register(ty.llvm());
+        auto reg = new Register(ty.llvm());
+        _namedStorage[name] = reg;
+        reg->name(name);
     } else {
         assert(false && "Unsupported storage type");
     }
