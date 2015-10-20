@@ -35,7 +35,7 @@ separator FuncParam "," ;
 VarStmt.    Statement ::= Type Id VarAssignment ;
 AssignStmt. Statement ::= Id "=" Exp ";" ;
 IfStmt.     Statement ::= "if" "(" Exp ")" Block ElseBlock ;
-BlockStmt.  Statement ::= "{" [Statement] "}" ;
+BlockStmt.  Statement ::= Block;
 PushStmt.   Statement ::= Id "<-" Exp ";" ;
 ReturnStmt. Statement ::= "return" Exp ";" ;
 terminator Statement "" ;
@@ -45,7 +45,7 @@ NoVarAssign.VarAssignment ::= ;
 
 rules Block ::= [BlockAttr] "{" [Statement] "}" ;
 
-rules BlockAttr ::= "atomic" | "noreorder" | "reorder";
+rules BlockAttr ::= "atomic" | "noreorder" | "reorder" | "xact" ;
 terminator BlockAttr "";
 
 Else.       ElseBlock ::= "else" Block ;

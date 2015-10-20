@@ -32,7 +32,8 @@ struct Variable {
     }
 };
 
-struct Context {
+class Context {
+public:
     Context* parent;
     SpatialCModule* mod;
     Event* ev;
@@ -41,15 +42,18 @@ struct Context {
     uint32_t    idx;
     OutputPort* totalBinaryClause;
     std::vector<Variable> vars;
+    OutputPort* xactWriteControl;
+    std::set<OutputPort*> xactWrites;
 
-    Context(Context& parent, OutputPort* clause, uint32_t idx) :
+    Context(Context& parent, OutputPort* clause = nullptr, uint32_t idx = 0) :
         parent(&parent),
         mod(parent.mod),
         ev(parent.ev),
         controlSignal(parent.controlSignal),
         clause(clause),
         idx(idx),
-        totalBinaryClause(nullptr)
+        totalBinaryClause(nullptr),
+        xactWriteControl(nullptr)
     { }
 
 
@@ -59,8 +63,33 @@ struct Context {
         ev(ev),
         controlSignal(cntrl),
         clause(nullptr),
-        totalBinaryClause(nullptr)
+        totalBinaryClause(nullptr),
+        xactWriteControl(nullptr)
     { }
+
+    bool inXact() const {
+        if (xactWriteControl != nullptr)
+            return true;
+        if (parent != nullptr)
+            return parent->inXact();
+        return false;
+    }
+
+    OutputPort* findWriteControl() const {
+        if (xactWriteControl != nullptr)
+            return xactWriteControl;
+        if (parent != nullptr)
+            return parent->findWriteControl();
+        return nullptr;
+    }
+
+    void pushWriteDone(OutputPort* op) {
+        if (xactWriteControl != nullptr) {
+            xactWrites.insert(op);
+        } else if (parent != nullptr) {
+            parent->pushWriteDone(op);
+        }
+    }
 
     llvm::LLVMContext& llvmCtxt() const {
         return mod->design().context();
@@ -178,6 +207,7 @@ struct Context {
     // Build a clause which outputs true/false, true when this context's clause
     // and all parent's clauses are true
     OutputPort* buildTotalBinaryClause(ConnectionDB* conns) {
+        printf("btbc: %p %p %p %p %p\n", this, totalBinaryClause, parent, controlSignal, clause);
         if (totalBinaryClause != nullptr) {
             // Use a cached copy if available
             return totalBinaryClause;
@@ -317,7 +347,7 @@ void Event::scanForOutputs(::Block* blockD) {
         auto blockStmt = dynamic_cast<BlockStmt*>(stmt);
         if (blockStmt != nullptr) {
             auto stmtList = new ListStatement();
-            *stmtList = *blockStmt->liststatement_;
+            *stmtList = *((::Block1*)blockStmt->block_)->liststatement_;
             ::Block1 b(nullptr, stmtList);
             scanForOutputs(&b);
             continue;
@@ -393,11 +423,7 @@ Event* Event::create(llpm::Design& design,
 
     // Find all the outputs this event uses
     ev->scanForOutputs(eventAst->block_);
-
-    // Process each statement in order, mutating the context as necessary
-    for (auto stmt: *((Block1*)eventAst->block_)->liststatement_) {
-        ev->processStatement(ctxt, stmt);
-    }
+    ev->processBlock(ctxt, eventAst->block_);
 
     return ev;
 }
@@ -470,11 +496,61 @@ void Event::processStmt(Context& ctxt, IfStmt* stmt) {
 }
 
 void Event::processStmt(Context& ctxt, BlockStmt* stmt) {
-    // Process each statement in order, mutating the context as necessary
     Context blockCtxt(ctxt);
-    for (auto s: *stmt->liststatement_) {
-        processStatement(blockCtxt, s);
+    processBlock(blockCtxt, stmt->block_);
+}
+
+void Event::processBlock(Context& ctxt, ::Block* blockSorta) {
+    printf("block start %u\n", blockSorta->line_number);
+    auto block = dynamic_cast<Block1*>(blockSorta);
+    assert(block != nullptr);
+
+    auto xact = false;
+
+    for (auto attr: *block->listblockattr_) {
+        auto xactBA = dynamic_cast<BlockAttr_xact*>(attr);
+        if (xactBA != nullptr) {
+            xact = true;
+            continue;
+        }
+
+        throw CodeError("Don't yet know how to handle block attribute!", block->line_number);
     }
+
+    if (xact) {
+        if (ctxt.inXact()) {
+            throw CodeError("Nested transactions (xact) not allowed", block->line_number);
+        }
+
+        auto readWait = new Wait(llvm::Type::getVoidTy(ctxt.llvmCtxt()));
+        auto voidConst = Constant::getVoid(design());
+        conns()->connect(voidConst->dout(), readWait->din());
+        ctxt.xactWriteControl = readWait->dout();
+    }
+
+    // Process each statement in order, mutating the context as necessary
+    for (auto s: *block->liststatement_) {
+        processStatement(ctxt, s);
+    }
+
+    if (xact) {
+        // Make next statements wait for our writes
+        auto writeWait = new Wait(ctxt.controlSignal->type());
+        conns()->connect(ctxt.controlSignal, writeWait->din());
+        writeWait->newControl(conns(), ctxt.xactWriteControl);
+        for (auto write: ctxt.xactWrites) {
+            writeWait->newControl(conns(), write);
+        }
+        if (ctxt.parent != nullptr) {
+            ctxt.parent->controlSignal = writeWait->dout();
+            ctxt.parent->totalBinaryClause = nullptr;
+        }
+
+        // Note: I'm assuming ctxt is unused after this call and will be
+        // destroyed. So I'm not cleaning it up!
+    }
+
+    printf("block end %u\n", blockSorta->line_number);
 }
 
 /**
@@ -509,6 +585,14 @@ void Event::processStmt(Context& ctxt, PushStmt* stmt) {
     connect(rtr->dout(0), ns->din());
     val = rtr->dout(1);
 
+    // If in transaction, wait for reads to complete
+    if (ctxt.inXact()) {
+        auto readWait = new Wait(val->type());
+        readWait->newControl(conns(), ctxt.findWriteControl());
+        conns()->connect(val, readWait->din());
+        val = readWait->dout();
+    }
+
     auto outpF = _outpConnections.find(stmt);
     if (outpF != _outpConnections.end()) {
         auto outp = _outpConnections[stmt];
@@ -534,9 +618,9 @@ void Event::processStmt(Context& ctxt, PushStmt* stmt) {
              ctxt.ev->addInputPort(inId->din()));
 
         ev->_memWriteConnections[outName].push_back(iface);
-        // TODO: Should we do something reasonable with the response?
         auto sink = new NullSink(iface.second->type());
-        conns()->connect(ev->getDriver(iface.second), sink->din());
+        conns()->connect(inId->dout(), sink->din());
+        ctxt.pushWriteDone(inId->dout());
         return;
     }
 
