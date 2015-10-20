@@ -501,18 +501,20 @@ OutputPort* Event::truncOrExtend(OutputPort* op, llvm::Type* ty) {
 void Event::processStmt(Context& ctxt, PushStmt* stmt) {
     auto outName = stmt->id_;
     auto val = evalExpression(ctxt, stmt->exp_);
+    auto rtr = new Router(2, val->type());
+    connect(val, rtr->din()->join(*conns(), 1));
+    connect(ctxt.buildTotalBinaryClause(conns()),
+            rtr->din()->join(*conns(), 0));
+    auto ns = new NullSink(rtr->dout(0)->type());
+    connect(rtr->dout(0), ns->din());
+    val = rtr->dout(1);
 
     auto outpF = _outpConnections.find(stmt);
     if (outpF != _outpConnections.end()) {
         auto outp = _outpConnections[stmt];
         val = truncOrExtend(val, outp->type());
-        auto rtr = new Router(2, val->type());
-        connect(val, rtr->din()->join(*conns(), 1));
-        connect(ctxt.buildTotalBinaryClause(conns()),
-                rtr->din()->join(*conns(), 0));
-        connect(rtr->dout(1), outp);
-        auto ns = new NullSink(rtr->dout(0)->type());
-        connect(rtr->dout(0), ns->din());
+
+        connect(val, outp);
         return;
     }
 
