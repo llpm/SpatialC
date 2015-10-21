@@ -621,21 +621,21 @@ void Event::processStmt(Context& ctxt, ReturnStmt* stmt) {
 }
 
 struct Expression {
-    static OutputPort* evalExpression(const Context& ctxt, Exp* exp);
+    static ValTy evalExpression(const Context& ctxt, Exp* exp);
 
-    static OutputPort* eval(const Context& ctxt, ETrue*) {
+    static ValTy eval(const Context& ctxt, ETrue*) {
         return (new llpm::Constant(
                     llvm::Constant::getIntegerValue(
                         llvm::Type::getInt1Ty(ctxt.llvmCtxt()),
                         llvm::APInt(1, 1))))->dout();
     }
-    static OutputPort* eval(const Context& ctxt, EFalse*) {
+    static ValTy eval(const Context& ctxt, EFalse*) {
         return (new llpm::Constant(
                     llvm::Constant::getIntegerValue(
                         llvm::Type::getInt1Ty(ctxt.llvmCtxt()),
                         llvm::APInt(1, 1))))->dout();
     }
-    static OutputPort* eval(const Context& ctxt, EInt* exp) {
+    static ValTy eval(const Context& ctxt, EInt* exp) {
         Integer i = exp->integer_;
         return (new llpm::Constant(
                     llvm::Constant::getIntegerValue(
@@ -643,7 +643,7 @@ struct Expression {
                                               sizeof(Integer) * 8),
                         llvm::APInt(sizeof(Integer) * 8, i))))->dout();
     }
-    static OutputPort* eval(const Context& ctxt, EDouble* exp) {
+    static ValTy eval(const Context& ctxt, EDouble* exp) {
         Double d = exp->double_;
         return (new llpm::Constant(
                     llvm::ConstantFP::get(
@@ -651,10 +651,10 @@ struct Expression {
                         d)))->dout();
     }
 
-    static OutputPort* eval(const Context& ctxt, EId* exp) {
+    static ValTy eval(const Context& ctxt, EId* exp) {
         auto v = ctxt.find(exp->id_);
         if (v != nullptr) {
-            return v->op;
+            return ValTy(v->op, v->ty);
         }
 
         auto nsF = ctxt.mod->namedStorage()->find(exp->id_);
@@ -665,6 +665,9 @@ struct Expression {
                                 + exp->id_ + "' by only name. This memory "
                                 " type needs some sort of accessor.");
             }
+            auto tyF = ctxt.mod->nameTypes()->find(exp->id_);
+            assert(tyF != ctxt.mod->nameTypes()->end() &&
+                        "Cannot find type!");
 
             auto ev = ctxt.ev;
             auto inId = new Identity(mem->read()->respType());
@@ -673,7 +676,7 @@ struct Expression {
                  ctxt.ev->addInputPort(inId->din()));
 
             ev->_memReadConnections[exp->id_].push_back(iface);
-            return inId->dout();
+            return ValTy(inId->dout(), tyF->second);
         }
 
         throw CodeError("Could not resolve name " + exp->id_,
@@ -681,13 +684,22 @@ struct Expression {
 
     }
 
+    static ValTy eval(const Context& ctxt, EDot* exp) {
+        auto val = evalExpression(ctxt, exp->exp_);
+        if (!val.ty.isStruct()) {
+            throw CodeError("Can only use dot (.) accessor on structs", exp->line_number);
+        }
+
+        return val.ty.asStruct()->accessor(ctxt.ev->conns(), val.val, exp->id_);
+    }
+
     template<typename IntOp>
     struct CreateOp {
-        void operator()(Exp* exp, OutputPort* a, OutputPort* b,
-                             InputPort*& ain, OutputPort*& aout) {
-            if (a->type()->isIntegerTy() &&
-                b->type()->isIntegerTy()) {
-                auto add = new IntOp(a->type(), b->type());
+        void operator()(Exp* exp, ValTy a, ValTy b,
+                             InputPort*& ain, ValTy& aout) {
+            if (a.val->type()->isIntegerTy() &&
+                b.val->type()->isIntegerTy()) {
+                auto add = new IntOp(a.val->type(), b.val->type());
                 ain = add->din();
                 aout = add->dout();
             } else {
@@ -700,11 +712,11 @@ struct Expression {
 
     template<typename IntOp>
     struct CreateOpVec {
-        void operator()(Exp* exp, OutputPort* a, OutputPort* b,
-                        InputPort*& ain, OutputPort*& aout) {
-            if (a->type()->isIntegerTy() &&
-                b->type()->isIntegerTy()) {
-                auto add = new IntOp({a->type(), b->type()});
+        void operator()(Exp* exp, ValTy a, ValTy b,
+                        InputPort*& ain, ValTy& aout) {
+            if (a.val->type()->isIntegerTy() &&
+                b.val->type()->isIntegerTy()) {
+                auto add = new IntOp({a.val->type(), b.val->type()});
                 ain = add->din();
                 aout = add->dout();
             } else {
@@ -716,37 +728,37 @@ struct Expression {
     };
 
     template<typename Create>
-    static OutputPort* evalBinOp(const Context& ctxt,
+    static ValTy evalBinOp(const Context& ctxt,
                                  Exp* exp,
                                  Exp* exp1, Exp* exp2) {
         auto a = evalExpression(ctxt, exp1);
         auto b = evalExpression(ctxt, exp2);
         InputPort* ain;
-        OutputPort* aout;
+        ValTy aout;
         Create c;
         c(exp, a, b, ain, aout); 
-        ctxt.ev->connect(a, ain->join(*ctxt.ev->conns(), 0));
-        ctxt.ev->connect(b, ain->join(*ctxt.ev->conns(), 1));
+        ctxt.ev->connect(a.val, ain->join(*ctxt.ev->conns(), 0));
+        ctxt.ev->connect(b.val, ain->join(*ctxt.ev->conns(), 1));
         return aout;
     }
 
-    static OutputPort* eval(const Context& ctxt, EPlus* exp) {
+    static ValTy eval(const Context& ctxt, EPlus* exp) {
         return evalBinOp<CreateOpVec<IntAddition>>(
             ctxt, exp, exp->exp_1, exp->exp_2);
     }
 
-    static OutputPort* eval(const Context& ctxt, EMinus* exp) {
+    static ValTy eval(const Context& ctxt, EMinus* exp) {
         return evalBinOp<CreateOp<IntSubtraction>>(
             ctxt, exp, exp->exp_1, exp->exp_2);
     }
 
     struct CreateDivide {
-        void operator()(Exp* exp, OutputPort* a, OutputPort* b,
-                             InputPort*& ain, OutputPort*& aout) {
-            if (a->type()->isIntegerTy() &&
-                b->type()->isIntegerTy()) {
+        void operator()(Exp* exp, ValTy a, ValTy b,
+                             InputPort*& ain, ValTy& aout) {
+            if (a.val->type()->isIntegerTy() &&
+                b.val->type()->isIntegerTy()) {
                 // TODO: Figure out a way to determine if 'b' is signed!
-                auto add = new IntDivide(a->type(), b->type(),
+                auto add = new IntDivide(a.val->type(), b.val->type(),
                                          false);
                 ain = add->din();
                 aout = add->dout();
@@ -757,23 +769,23 @@ struct Expression {
             }
         }
     };
-    static OutputPort* eval(const Context& ctxt, EDiv* exp) {
+    static ValTy eval(const Context& ctxt, EDiv* exp) {
         return evalBinOp<CreateDivide>(
             ctxt, exp, exp->exp_1, exp->exp_2);
     }
-    static OutputPort* eval(const Context& ctxt, ETimes* exp) {
+    static ValTy eval(const Context& ctxt, ETimes* exp) {
         return evalBinOp<CreateOpVec<IntMultiply>>(
             ctxt, exp, exp->exp_1, exp->exp_2);
     }
 
     template<IntCompare::Cmp CmpType>
     struct CreateCompare {
-        void operator()(Exp* exp, OutputPort* a, OutputPort* b,
-                        InputPort*& ain, OutputPort*& aout) {
-            if (a->type()->isIntegerTy() &&
-                b->type()->isIntegerTy()) {
+        void operator()(Exp* exp, ValTy a, ValTy b,
+                        InputPort*& ain, ValTy& aout) {
+            if (a.val->type()->isIntegerTy() &&
+                b.val->type()->isIntegerTy()) {
                 // TODO: Figure out if this is a signed comparison!
-                auto add = new IntCompare(a->type(), b->type(),
+                auto add = new IntCompare(a.val->type(), b.val->type(),
                                           CmpType, false);
                 ain = add->din();
                 aout = add->dout();
@@ -785,39 +797,39 @@ struct Expression {
         }
     };
 
-    static OutputPort* eval(const Context& ctxt, ELt* exp) {
+    static ValTy eval(const Context& ctxt, ELt* exp) {
         return evalBinOp<CreateCompare<llpm::IntCompare::GT>>(
             ctxt, exp, exp->exp_2, exp->exp_1);
     }
-    static OutputPort* eval(const Context& ctxt, EGt* exp) {
+    static ValTy eval(const Context& ctxt, EGt* exp) {
         return evalBinOp<CreateCompare<llpm::IntCompare::GT>>(
             ctxt, exp, exp->exp_1, exp->exp_2);
     }
-    static OutputPort* eval(const Context& ctxt, ELtEq* exp) {
+    static ValTy eval(const Context& ctxt, ELtEq* exp) {
         return evalBinOp<CreateCompare<llpm::IntCompare::GTE>>(
             ctxt, exp, exp->exp_2, exp->exp_1);
     }
-    static OutputPort* eval(const Context& ctxt, EGtEq* exp) {
+    static ValTy eval(const Context& ctxt, EGtEq* exp) {
         return evalBinOp<CreateCompare<llpm::IntCompare::GTE>>(
             ctxt, exp, exp->exp_1, exp->exp_2);
     }
-    static OutputPort* eval(const Context& ctxt, EEq* exp) {
+    static ValTy eval(const Context& ctxt, EEq* exp) {
         return evalBinOp<CreateCompare<llpm::IntCompare::EQ>>(
             ctxt, exp, exp->exp_1, exp->exp_2);
     }
-    static OutputPort* eval(const Context& ctxt, ENEq* exp) {
+    static ValTy eval(const Context& ctxt, ENEq* exp) {
         return evalBinOp<CreateCompare<llpm::IntCompare::NEQ>>(
             ctxt, exp, exp->exp_1, exp->exp_2);
     }
 
     template<Bitwise::Op OpType>
     struct CreateBitwise {
-        void operator()(Exp* exp, OutputPort* a, OutputPort* b,
-                        InputPort*& ain, OutputPort*& aout) {
-            if (a->type()->isIntegerTy() &&
-                b->type()->isIntegerTy()) {
+        void operator()(Exp* exp, ValTy a, ValTy b,
+                        InputPort*& ain, ValTy& aout) {
+            if (a.val->type()->isIntegerTy() &&
+                b.val->type()->isIntegerTy()) {
                 // TODO: Figure out if this is a signed comparison!
-                auto add = new Bitwise(2, a->type(), OpType);
+                auto add = new Bitwise(2, a.val->type(), OpType);
                 ain = add->din();
                 aout = add->dout();
             } else {
@@ -828,17 +840,17 @@ struct Expression {
         }
     };
 
-    static OutputPort* eval(const Context& ctxt, EAnd* exp) {
+    static ValTy eval(const Context& ctxt, EAnd* exp) {
         return evalBinOp<CreateBitwise<Bitwise::AND>>(
             ctxt, exp, exp->exp_1, exp->exp_2);
     }
-    static OutputPort* eval(const Context& ctxt, EOr* exp) {
+    static ValTy eval(const Context& ctxt, EOr* exp) {
         return evalBinOp<CreateBitwise<Bitwise::OR>>(
             ctxt, exp, exp->exp_1, exp->exp_2);
     }
 };
 
-OutputPort* Expression::evalExpression(const Context& ctxt, Exp* exp) {
+ValTy Expression::evalExpression(const Context& ctxt, Exp* exp) {
     #define TYPE_EXP_PROCESS(TY) { \
         auto tyExp = dynamic_cast<TY*>(exp); \
         if (tyExp != nullptr) return Expression::eval(ctxt, tyExp); \
@@ -849,6 +861,8 @@ OutputPort* Expression::evalExpression(const Context& ctxt, Exp* exp) {
     TYPE_EXP_PROCESS(EInt);
     TYPE_EXP_PROCESS(EDouble);
     TYPE_EXP_PROCESS(EId);
+
+    TYPE_EXP_PROCESS(EDot);
 
     TYPE_EXP_PROCESS(EPlus);
     TYPE_EXP_PROCESS(EMinus);
@@ -869,7 +883,7 @@ OutputPort* Expression::evalExpression(const Context& ctxt, Exp* exp) {
 }
 
 OutputPort* Event::evalExpression(const Context& ctxt, Exp* exp) {
-    return Expression::evalExpression(ctxt, exp);
+    return Expression::evalExpression(ctxt, exp).val;
 }
 
 } // namespace spatialc

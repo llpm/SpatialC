@@ -5,14 +5,13 @@
 #include <libraries/core/logic_intr.hpp>
 #include <libraries/core/comm_intr.hpp>
 
-#include <regex>
-
 using namespace std;
 
 namespace spatialc {
 
 SpatialCModule::SpatialCModule(Package* pkg, std::string name) : 
-    ContainerModule(pkg->set()->trans()->design(), name)
+    ContainerModule(pkg->set()->trans()->design(), name),
+    _package(pkg)
 { }
 
 llpm::InputPort* SpatialCModule::addInputPort(Type ty,
@@ -169,29 +168,8 @@ void SpatialCModule::addEvent(Event* ev) {
     _events.push_back(ev);
 }
 
-regex intTypeNameR("u?int(\\d*)");
-
 Type SpatialCModule::getType(string typeName) {
-    if (typeName == "void") {
-        return Type(llvm::Type::getVoidTy(design().context()));
-    } else if (typeName == "bool") {
-        return Type(
-            llvm::Type::getIntNTy(design().context(), 1));
-    }
-
-    smatch rResult;
-    if (regex_search(typeName, rResult, intTypeNameR)) {
-        int width = 32;
-        auto widthStr = rResult[1].str();
-        if (widthStr.size() > 0) {
-            width = atol(widthStr.c_str());
-        }
-
-        return Type(
-            llvm::Type::getIntNTy(design().context(), width));
-    }
-
-    throw SemanticError("Could not resolve type: " + typeName);
+    return Type::resolve(_package, typeName);
 }
 
 } // namespace spatialc

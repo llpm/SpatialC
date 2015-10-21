@@ -122,8 +122,12 @@ string PackageSet::joinName(vector<PackageName*> parts) {
 }
 
 void Package::translateStruct(::DefStruct* ast) {
-    auto s = new Struct(ast);
+    auto s = new Struct(this, ast);
     _structs[ast->id_] = s;
+}
+
+llpm::Design& Package::design() {
+    return _set->trans()->design();
 }
 
 void Package::lazyBuild(::Package* pkgAst) {
@@ -176,6 +180,48 @@ llpm::Module* Package::getModule(std::string moduleName) {
     auto mod = _set->trans()->translate(this, ast);
     _modules[moduleName] = mod;
     return mod;
+}
+
+bool Package::findTypeLocal(std::string typeName, Type& ty) {
+    auto structF = _structs.find(typeName);
+    if (structF != _structs.end()) {
+        ty = Type(structF->second);
+        return true;
+    }
+    return false;
+}
+
+bool Package::resolveNamedType(std::string typeName, Type& ty) {
+    string pkgName, obj;
+    PackageSet::splitName(typeName, pkgName, obj);
+    if (pkgName != "") {
+        auto pkg = _set->getPackage(pkgName);
+        if (pkg == nullptr)
+            throw SemanticError("Could not locate package " + pkgName);
+        return pkg->findTypeLocal(obj, ty);
+    }
+
+    if (findTypeLocal(typeName, ty))
+        return true;
+
+    vector<pair<Package*, Type>> found;
+    for (auto import: _imports) {
+        Type lcl;
+        if (import->findTypeLocal(typeName, lcl)) {
+            found.push_back(make_pair(import, lcl));
+        }
+    }
+    if (found.size() == 1)
+        ty = found.front().second;
+    if (found.size() > 1) {
+        string err = "Ambiguous type name '" + typeName + "'." +
+            " Could from any of these packages:\n";
+        for (auto f: found) {
+            err = err + "    " + f.first->name() + "\n";
+        }
+        throw SemanticError(err);
+    }
+    return false;
 }
 
 }

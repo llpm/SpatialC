@@ -85,9 +85,11 @@ public:
     virtual ~Package() { }
 
     DEF_GET_NP(set);
+    DEF_GET_NP(name);
+    llpm::Design& design();
 
-    Type findTypeLocal(std::string typeName);
-    Type resolveType(std::string typeName);
+    bool findTypeLocal(std::string typeName, Type& ty);
+    bool resolveNamedType(std::string typeName, Type& ty);
 
     ::DefModule*  getModuleAST(std::string moduleName);
     llpm::Module* getModule(std::string moduleName);
