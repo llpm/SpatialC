@@ -13,7 +13,6 @@ int main() {
 
     for (int32_t i=0; i<100; i++) {
         s->valIn(i);
-        s->run(2);
         uint32_t j, k;
         s->byTwo(&j);
         s->total(&k);

@@ -42,8 +42,12 @@ public:
     uint32_t    idx;
     OutputPort* totalBinaryClause;
     std::vector<Variable> vars;
-    OutputPort* xactWriteControl;
-    std::set<OutputPort*> xactWrites;
+    Wait*       readController;
+    OutputPort* writeControl;
+    bool xact;
+    bool atomic;
+    bool recordWriteAcks;
+    std::set<OutputPort*> writeAcks;
 
     Context(Context& parent, OutputPort* clause = nullptr, uint32_t idx = 0) :
         parent(&parent),
@@ -53,7 +57,11 @@ public:
         clause(clause),
         idx(idx),
         totalBinaryClause(nullptr),
-        xactWriteControl(nullptr)
+        readController(nullptr),
+        writeControl(nullptr),
+        xact(false),
+        atomic(false),
+        recordWriteAcks(false)
     { }
 
 
@@ -64,11 +72,23 @@ public:
         controlSignal(cntrl),
         clause(nullptr),
         totalBinaryClause(nullptr),
-        xactWriteControl(nullptr)
+        readController(nullptr),
+        writeControl(nullptr),
+        xact(false),
+        atomic(false),
+        recordWriteAcks(false)
     { }
 
     bool inXact() const {
-        if (xactWriteControl != nullptr)
+        if (xact)
+            return true;
+        if (parent != nullptr)
+            return parent->inXact();
+        return false;
+    }
+
+    bool inAtomic() const {
+        if (atomic)
             return true;
         if (parent != nullptr)
             return parent->inXact();
@@ -76,16 +96,16 @@ public:
     }
 
     OutputPort* findWriteControl() const {
-        if (xactWriteControl != nullptr)
-            return xactWriteControl;
+        if (writeControl != nullptr)
+            return writeControl;
         if (parent != nullptr)
             return parent->findWriteControl();
         return nullptr;
     }
 
     void pushWriteDone(OutputPort* op) {
-        if (xactWriteControl != nullptr) {
-            xactWrites.insert(op);
+        if (recordWriteAcks) {
+            writeAcks.insert(op);
         } else if (parent != nullptr) {
             parent->pushWriteDone(op);
         }
@@ -496,6 +516,8 @@ void Event::processBlock(Context& ctxt, ::Block* blockSorta) {
     assert(block != nullptr);
 
     auto xact = false;
+    auto atomic = false;
+    Select* atomicWaitControlSelect = nullptr;
 
     for (auto attr: *block->listblockattr_) {
         auto xactBA = dynamic_cast<BlockAttr_xact*>(attr);
@@ -504,18 +526,46 @@ void Event::processBlock(Context& ctxt, ::Block* blockSorta) {
             continue;
         }
 
+        auto atomicBA = dynamic_cast<BlockAttr_atomic*>(attr);
+        if (atomicBA != nullptr) {
+            atomic = true;
+            continue;
+        }
+
         throw CodeError("Don't yet know how to handle block attribute!", block->line_number);
+    }
+
+    if (atomic) {
+        if (ctxt.inAtomic()) {
+            throw CodeError("Nested atomic regions not allowed", block->line_number);
+        }
+
+        // Built a gated entry
+        auto wait = new Wait(ctxt.controlSignal->type());
+        conns()->connect(wait->din(), ctxt.controlSignal);
+        ctxt.controlSignal = wait->dout();
+        ctxt.totalBinaryClause = nullptr;
+        auto once = Once::getVoid(mod()->design());
+        atomicWaitControlSelect = new Select(0, once->dout()->type());
+        wait->newControl(conns(), atomicWaitControlSelect->dout());
+        conns()->connect(once->dout(), atomicWaitControlSelect->createInput());
+        ctxt.atomic = true;
+    }
+
+    if (atomic || xact) {
+        auto readWait = new Wait(llvm::Type::getVoidTy(ctxt.llvmCtxt()));
+        auto voidConst = Constant::getVoid(design());
+        conns()->connect(voidConst->dout(), readWait->din());
+        ctxt.readController = readWait;
+        ctxt.recordWriteAcks = true;
     }
 
     if (xact) {
         if (ctxt.inXact()) {
             throw CodeError("Nested transactions (xact) not allowed", block->line_number);
         }
-
-        auto readWait = new Wait(llvm::Type::getVoidTy(ctxt.llvmCtxt()));
-        auto voidConst = Constant::getVoid(design());
-        conns()->connect(voidConst->dout(), readWait->din());
-        ctxt.xactWriteControl = readWait->dout();
+        ctxt.writeControl = ctxt.readController->dout();
+        ctxt.xact = true;
     }
 
     // Process each statement in order, mutating the context as necessary
@@ -523,12 +573,26 @@ void Event::processBlock(Context& ctxt, ::Block* blockSorta) {
         processStatement(ctxt, s);
     }
 
+    if (atomic) {
+        auto nextAllowedWait = new Wait(atomicWaitControlSelect->dout()->type());
+        conns()->connect(
+            nextAllowedWait->dout(),
+            atomicWaitControlSelect->createInput());
+        auto tokenConst = Constant::getVoid(_mod->design());
+        conns()->connect(tokenConst->dout(), nextAllowedWait->din());
+
+        nextAllowedWait->newControl(conns(), ctxt.readController->dout());
+        for (auto op: ctxt.writeAcks) {
+            nextAllowedWait->newControl(conns(), op);
+        }
+    }
+
     if (xact) {
         // Make next statements wait for our writes
         auto writeWait = new Wait(ctxt.controlSignal->type());
         conns()->connect(ctxt.controlSignal, writeWait->din());
-        writeWait->newControl(conns(), ctxt.xactWriteControl);
-        for (auto write: ctxt.xactWrites) {
+        writeWait->newControl(conns(), ctxt.writeControl);
+        for (auto write: ctxt.writeAcks) {
             writeWait->newControl(conns(), write);
         }
         if (ctxt.parent != nullptr) {
@@ -676,6 +740,7 @@ struct Expression {
                  ctxt.ev->addInputPort(inId->din()));
 
             ev->_memReadConnections[exp->id_].push_back(iface);
+            ctxt.readController->newControl(ctxt.ev->conns(), inId->dout());
             return ValTy(inId->dout(), tyF->second);
         }
 

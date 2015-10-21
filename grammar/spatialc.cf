@@ -46,7 +46,7 @@ NoVarAssign.VarAssignment ::= ;
 
 rules Block ::= [BlockAttr] "{" [Statement] "}" ;
 
-rules BlockAttr ::= "atomic" | "noreorder" | "reorder" | "xact" ;
+rules BlockAttr ::= "atomic" | "xact" ;
 terminator BlockAttr "";
 
 Else.       ElseBlock ::= "else" Block ;

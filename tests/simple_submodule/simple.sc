@@ -31,7 +31,7 @@ module Accumulator {
         acc <- 0;
     }
 
-    event(value -> msg) {
+    event(value -> msg) atomic {
         acc <- acc + msg;
         total <- acc + msg;
     }
