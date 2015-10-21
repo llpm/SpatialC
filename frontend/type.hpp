@@ -13,6 +13,7 @@ class DefStruct;
 // LLPM fwd defs
 namespace llpm {
     class ConnectionDB;
+    class Module;
 }
 
 namespace spatialc {
@@ -23,28 +24,39 @@ class Struct;
 class Array;
 
 class Type {
-    llvm::Type* _simple;
-    Struct*     _struct;
-    Array*      _array;
+    llvm::Type*   _simple;
+    Struct*       _struct;
+    Array*        _array;
+    llpm::Module* _module;
 
 public:
     Type(llvm::Type* simple) :
         _simple(simple),
         _struct(nullptr),
-        _array(nullptr)
+        _array(nullptr),
+        _module(nullptr)
     { }
 
     Type(Struct* strct) :
         _simple(nullptr),
         _struct(strct),
-        _array(nullptr)
+        _array(nullptr),
+        _module(nullptr)
+    { }
+
+    Type(llpm::Module* mod) :
+        _simple(nullptr),
+        _struct(nullptr),
+        _array(nullptr),
+        _module(mod)
     { }
 
     // Invalid type constructor
     Type() :
         _simple(nullptr),
         _struct(nullptr),
-        _array(nullptr)
+        _array(nullptr),
+        _module(nullptr)
     { }
 
     ~Type() { }
@@ -68,12 +80,20 @@ public:
         return _struct != nullptr;
     }
 
+    bool isModule() const {
+        return _module != nullptr;
+    }
+
     Struct* asStruct() {
         return _struct;
     }
 
     Array* asArray() {
         return _array;
+    }
+
+    llpm::Module* asModule() {
+        return _module;
     }
 
     bool operator==(const Type& t) {

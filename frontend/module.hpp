@@ -10,6 +10,9 @@ namespace llpm {
 class Select;
 }
 
+// AST fwd. defs
+class DefConnect;
+
 namespace spatialc {
 
 // Fwd defs
@@ -28,6 +31,8 @@ class SpatialCModule : public llpm::ContainerModule {
     std::map<std::string, llpm::Identity*>   _namedInternal;
     std::map<std::string, llpm::Memory*>     _namedStorage;
     std::map<std::string, Type>              _nameTypes;
+
+    std::map<std::string, llpm::Module*>     _submodules;
 
     std::map<llpm::OutputPort*, llpm::Select*> _outputSelects;
     std::map<llpm::Identity*,   llpm::Select*> _internalSelects;
@@ -52,6 +57,7 @@ private:
     llpm::Identity*   addInternalPort(Type, std::string name);
     void addStorage(Type, std::string name);
     void addEvent(Event*);
+    void addConnection(::DefConnect*);
 };
 
 }

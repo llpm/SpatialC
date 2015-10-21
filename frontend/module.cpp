@@ -68,6 +68,11 @@ void SpatialCModule::addStorage(Type ty, std::string name) {
         auto reg = new Register(ty.llvm());
         _namedStorage[name] = reg;
         reg->name(name);
+    } else if (ty.isModule()) {
+        if (_submodules.find(name) != _submodules.end()) {
+            throw CodeError("Submodule name already in use!");
+        }
+        _submodules[name] = ty.asModule();
     } else {
         assert(false && "Unsupported storage type");
     }
@@ -166,6 +171,80 @@ void SpatialCModule::addEvent(Event* ev) {
     }
 
     _events.push_back(ev);
+}
+
+void SpatialCModule::addConnection(::DefConnect* conn) {
+    auto smF = _submodules.find(conn->id_1);
+    if (smF == _submodules.end()) {
+        throw CodeError("Could not find submodule " + conn->id_1, conn->line_number);
+    }
+    auto sm = smF->second;
+
+    Port* smPort = nullptr;
+    for (auto ip: sm->inputs()) {
+        if (ip->name() == conn->id_2) {
+            if (smPort != nullptr) {
+                throw CodeError("Found multiple ports called " + conn->id_2);
+            }
+            smPort = ip;
+        }
+    }
+
+    for (auto op: sm->outputs()) {
+        if (op->name() == conn->id_2) {
+            if (smPort != nullptr) {
+                throw CodeError("Found multiple ports called " + conn->id_2);
+            }
+            smPort = op;
+        }
+    }
+
+    if (smPort == nullptr) {
+        if (smPort != nullptr) {
+            throw CodeError("Could not fine port called " + conn->id_2);
+        }
+    }
+
+    auto smIP = smPort->asInput();
+    if (smIP != nullptr) {
+        // Submodule port is an INPUT
+        if (conns()->findSource(smIP) != nullptr) {
+            throw CodeError("Port connected to multiple sources", conn->line_number);
+        }
+
+        auto inpF = _namedInputs.find(conn->id_3);
+        if (inpF != _namedInputs.end()) {
+            // Submodule port is driven by one of our inputs
+            conns()->connect(getDriver(inpF->second), smIP);
+        } else {
+            // Submodule port is driver by one of our internal channels
+            auto intF = _namedInternal.find(conn->id_3);
+            if (intF != _namedInternal.end()) {
+                conns()->connect(intF->second->dout(), smIP);
+            } else {
+                throw CodeError("Could not find driver " + conn->id_3, conn->line_number);
+            }
+        }
+    }
+
+    auto smOP = smPort->asOutput();
+    if (smOP != nullptr) {
+        // Submodule port is an OUTPUT
+        
+        auto outF = _namedOutputs.find(conn->id_3);
+        if (outF != _namedOutputs.end()) {
+            // Submodule port is drives one of our outputs 
+            conns()->connect(_outputSelects[outF->second]->createInput(), smOP);
+        } else {
+            // Submodule port is drives one of our internal channels
+            auto intF = _namedInternal.find(conn->id_3);
+            if (intF != _namedInternal.end()) {
+                conns()->connect(_internalSelects[intF->second]->createInput(), smOP);
+            } else {
+                throw CodeError("Could not find sink " + conn->id_3, conn->line_number);
+            }
+        }
+    }
 }
 
 Type SpatialCModule::getType(string typeName) {

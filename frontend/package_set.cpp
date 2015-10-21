@@ -188,6 +188,13 @@ bool Package::findTypeLocal(std::string typeName, Type& ty) {
         ty = Type(structF->second);
         return true;
     }
+
+    auto modF = _moduleASTs.find(typeName);
+    if (modF != _moduleASTs.end()) {
+        ty = Type(getModule(typeName));
+        return true;
+    }
+
     return false;
 }
 

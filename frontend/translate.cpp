@@ -59,6 +59,13 @@ llpm::Module* Translator::translate(Package* pkg, DefModule* modAst) {
             continue;
         }
 
+        auto connection = dynamic_cast<DefConnect*>(def);
+        if (connection != nullptr) {
+            mod->addConnection(connection);
+
+            continue;
+        }
+
         assert(false && "Don't know how to deal with module-level def");
     }
 

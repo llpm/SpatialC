@@ -11,6 +11,7 @@ DefInput.   ModDef ::= "input" Type Id ";" ;
 DefOutput.  ModDef ::= "output" Type Id ";" ;
 DefInternal.ModDef ::= "internal" Type Id ";" ;
 DefEvent.   ModDef ::= "event" EventName "(" [EventParam] ")" Block ;
+DefConnect. ModDef ::= Id "." Id "<>" Id ";" ;
 terminator ModDef "" ;
 
 NoEvName.   EventName ::= ;
