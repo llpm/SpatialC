@@ -11,6 +11,10 @@ using namespace std;
 
 namespace spatialc {
 
+SpatialCModule::SpatialCModule(Package* pkg, std::string name) : 
+    ContainerModule(pkg->set()->trans()->design(), name)
+{ }
+
 llpm::InputPort* SpatialCModule::addInputPort(Type ty,
                                               std::string name) {
     if (_nameTypes.count(name) > 0) {

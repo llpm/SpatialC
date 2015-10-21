@@ -44,17 +44,13 @@ int main(int argc, char** argv) {
 
         includeDirs = vm["include"].as<vector<string>>();
 
-        PackageSet ps(includeDirs);
-        DefModule* mod = ps.getModule(modName);
+        PackageSet ps(d, includeDirs);
+        llpm::Module* hwMod = ps.getModule(modName);
 
-        if (mod == nullptr) {
+        if (hwMod == nullptr) {
             fprintf(stderr, "Could not find module %s\n", modName.c_str());
             return 2;
         }
-
-        spatialc::Translator trans(d, ps);
-        llpm::Module* hwMod = trans.translate(mod);
-        assert(hwMod != nullptr);
 
         d.addModule(hwMod);
 

@@ -539,7 +539,6 @@ void Event::processBlock(Context& ctxt, ::Block* blockSorta) {
         // Note: I'm assuming ctxt is unused after this call and will be
         // destroyed. So I'm not cleaning it up!
     }
-
 }
 
 /**

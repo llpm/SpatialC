@@ -2,7 +2,6 @@
 #define __SPATIALC_FRONTEND_MODULE_HPP__
 
 #include <llpm/module.hpp>
-#include <frontend/translate.hpp>
 #include <frontend/type.hpp>
 #include <libraries/core/mem_intr.hpp>
 
@@ -15,10 +14,14 @@ namespace spatialc {
 
 // Fwd defs
 class Event;
+class Translator;
+class Package;
 
 class SpatialCModule : public llpm::ContainerModule {
     friend class Translator;
     friend class Event;
+
+    Package* _package;
 
     std::map<std::string, llpm::InputPort*>  _namedInputs;
     std::map<std::string, llpm::OutputPort*> _namedOutputs;
@@ -30,9 +33,7 @@ class SpatialCModule : public llpm::ContainerModule {
     std::map<llpm::Identity*,   llpm::Select*> _internalSelects;
     std::vector<Event*>                        _events;
 
-    SpatialCModule(llpm::Design& design, std::string name) : 
-        ContainerModule(design, name)
-    { }
+    SpatialCModule(Package* pkg, std::string name);
 
 public:
     ~SpatialCModule() { }

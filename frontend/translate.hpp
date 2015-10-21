@@ -12,6 +12,7 @@ namespace spatialc {
 
 // Fwd defs.
 class SpatialCModule;
+class Package;
 
 using namespace llpm;
 
@@ -25,7 +26,9 @@ public:
         _packages(ps) {
     }
 
-    llpm::Module* translate(DefModule* mod);
+    DEF_GET_NP(design);
+
+    llpm::Module* translate(Package* pkg, DefModule* mod);
 };
 
 }

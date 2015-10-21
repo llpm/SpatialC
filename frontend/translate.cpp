@@ -7,8 +7,8 @@ using namespace std;
 
 namespace spatialc {
 
-llpm::Module* Translator::translate(DefModule* modAst) {
-    SpatialCModule* mod = new SpatialCModule(_design, modAst->id_);
+llpm::Module* Translator::translate(Package* pkg, DefModule* modAst) {
+    SpatialCModule* mod = new SpatialCModule(pkg, modAst->id_);
 
     for (ModDef* def: *modAst->listmoddef_) {
         auto storage = dynamic_cast<DefStorage*>(def);

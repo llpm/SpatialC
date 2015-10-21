@@ -4,6 +4,9 @@
 #include <util/macros.hpp>
 #include <llvm/IR/Type.h>
 
+// AST fwd defs
+class DefStruct;
+
 namespace spatialc {
 
 class Struct {
@@ -13,6 +16,8 @@ public:
     Struct(llvm::Type* llvm) :
         _llvm(llvm)
     { }
+
+    Struct(DefStruct* ast);
 
     DEF_GET_NP(llvm); 
 };
