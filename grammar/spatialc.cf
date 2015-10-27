@@ -56,7 +56,6 @@ terminator BlockAttr "";
 Else.       ElseBlock ::= "else" Block ;
 NoElse.     ElseBlock ::= ;
 
-
 ETrue.   Exp15  ::= "true" ;
 EFalse.  Exp15  ::= "false" ;
 EInt.    Exp15  ::= Integer ;
@@ -67,6 +66,8 @@ EId.     Exp15  ::= Id ;
 EApp.    Exp15  ::= Exp15 "(" [Exp] ")" ;
 EArrAcc. Exp15  ::= Id "[" Exp "]" ;
 EDot.    Exp15  ::= Exp15  "." Id ;
+
+EStructLiteral. Exp14 ::= Id "{" [StructLiteralField] "}" ;
 
 ETimes.  Exp12  ::= Exp12 "*"  Exp13 ;
 EDiv.    Exp12  ::= Exp12 "/"  Exp13 ;
@@ -87,6 +88,9 @@ separator Exp "," ;
 
 rules PackageName ::= Id ;
 separator PackageName "." ;
+
+rules StructLiteralField ::= Id ":" Exp ;
+separator StructLiteralField "," ;
 
 token Id ((letter | '_') (letter | digit | '_')*) ;
 

@@ -32,6 +32,7 @@ class Event : public llpm::ContainerModule {
     void buildInitial(Context&, ListEventParam* list);
     void processStatement(Context&, Statement*);
     OutputPort* truncOrExtend(OutputPort* op, llvm::Type* ty);
+    ValTy truncOrExtend(ValTy op, Type ty);
     void processBlock(Context&, ::Block*);
     void processStmt(Context&, VarStmt*);
     void processStmt(Context&, AssignStmt*);

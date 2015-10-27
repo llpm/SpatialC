@@ -105,12 +105,12 @@ public:
         return _module;
     }
 
-    bool operator==(const Type& t) {
+    bool operator==(const Type& t) const {
         return _simple == t._simple &&
                _struct == t._struct;
     }
 
-    bool operator!=(const Type& t) {
+    bool operator!=(const Type& t) const {
         return !(*this == t);
     }
 };
@@ -149,6 +149,9 @@ public:
     Struct(Package* pkg, DefStruct* ast);
 
     DEF_GET_NP(llvm); 
+    DEF_GET_NP(subNames);
+    DEF_ARRAY_GET(subTypes);
+    DEF_GET_NP(name);
 
     llpm::OutputPort* accessor(llpm::ConnectionDB*,
                                llpm::OutputPort*,

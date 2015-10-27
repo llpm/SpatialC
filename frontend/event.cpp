@@ -626,6 +626,13 @@ OutputPort* Event::truncOrExtend(OutputPort* op, llvm::Type* ty) {
     }
 }
 
+ValTy Event::truncOrExtend(ValTy val, Type ty) {
+    auto newOp = truncOrExtend(val.val, ty.llvm());
+    if (newOp == val.val)
+        return val;
+    return ValTy(newOp, ty);
+}
+
 void Event::processStmt(Context& ctxt, PushStmt* stmt) {
     auto outName = stmt->id_;
     auto val = evalExpression(ctxt, stmt->exp_);
@@ -803,6 +810,47 @@ struct Expression {
         if (ctxt.readController != nullptr)
             ctxt.readController->newControl(ctxt.ev->conns(), inId->dout());
         return ValTy(inId->dout(), tyF->second.asArray()->contained());
+    }
+
+    static ValTy eval(const Context& ctxt, EStructLiteral* exp) {
+        auto ty = ctxt.mod->getType(exp->id_);
+        if (!ty.isStruct()) {
+            throw CodeError("Type specified for struct constructor is not a struct!",
+                            exp->line_number);
+        }
+
+        auto strTy = ty.asStruct();
+        vector<OutputPort*> fields(strTy->subNames().size());
+        for (auto sl: *exp->liststructliteralfield_) {
+            auto fieldName = ((StructLiteralField1*)sl)->id_;
+            auto fieldNumF = strTy->subNames().find(fieldName);
+            if (fieldNumF == strTy->subNames().end()) {
+                throw CodeError("Could not find struct field '" + fieldName + "'",
+                                exp->line_number);
+            }
+            auto fieldNum = fieldNumF->second;
+            auto exp = evalExpression(ctxt, ((StructLiteralField1*)sl)->exp_);
+            exp = ctxt.ev->truncOrExtend(exp, strTy->subTypes(fieldNum));
+            assert(fieldNum < fields.size());
+            fields[fieldNum] = exp.val;
+            if (strTy->subTypes(fieldNum) != exp.ty) {
+                throw CodeError("Expression does not match field type", sl->line_number);
+            }
+        }
+
+        // Fill in any unspecified fields with constants containing unknowns
+        for (unsigned i=0; i<fields.size(); i++) {
+            if (fields[i] == nullptr) {
+                auto c = new Constant(strTy->subTypes(i).llvm());
+                fields[i] = c->dout();
+            }
+        }
+
+        auto j = new Join(ty.llvm());
+        for (unsigned i=0; i<fields.size(); i++) {
+            ctxt.ev->conns()->connect(fields[i], j->din(i));
+        }
+        return ValTy(j->dout(), ty);
     }
 
     static ValTy eval(const Context& ctxt, EDot* exp) {
@@ -985,6 +1033,8 @@ ValTy Expression::evalExpression(const Context& ctxt, Exp* exp) {
 
     TYPE_EXP_PROCESS(EArrAcc);
     TYPE_EXP_PROCESS(EDot);
+
+    TYPE_EXP_PROCESS(EStructLiteral);
 
     TYPE_EXP_PROCESS(EPlus);
     TYPE_EXP_PROCESS(EMinus);
