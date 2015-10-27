@@ -62,6 +62,8 @@ llvm::Type* Type::llvm() const {
         return _simple;
     if (_struct)
         return _struct->llvm();
+    if (_array)
+        return _array->llvm();
     return nullptr;
 }
 
@@ -94,6 +96,27 @@ Type Type::resolve(Package* pkg, std::string typeName) {
         return ty;
 
     throw SemanticError("Could not resolve type: " + typeName);
+}
+
+Type Type::resolve(Package* ctxt, ::Type* astType) {
+    auto tyName = dynamic_cast<TyName*>(astType);
+    if (tyName != nullptr) {
+        return resolve(ctxt, tyName->id_);
+    }
+
+    auto tyArray = dynamic_cast<TyArray*>(astType);
+    if (tyArray != nullptr) {
+        auto arr = new Array(
+            resolve(ctxt, tyArray->type_),
+            tyArray->integer_);
+        return Type(arr);
+    }
+
+    assert(false && "I don't recognize this type definition!");
+}
+
+llvm::Type* Array::llvm() const {
+    return llvm::ArrayType::get(_contained.llvm(), _length);
 }
 
 } // namespace spatialc

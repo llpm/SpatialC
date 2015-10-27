@@ -9,6 +9,7 @@
 
 // AST fwd defs
 class DefStruct;
+class Type;
 
 // LLPM fwd defs
 namespace llpm {
@@ -44,6 +45,13 @@ public:
         _module(nullptr)
     { }
 
+    Type(Array* arr) :
+        _simple(nullptr),
+        _struct(nullptr),
+        _array(arr),
+        _module(nullptr)
+    { }
+
     Type(llpm::Module* mod) :
         _simple(nullptr),
         _struct(nullptr),
@@ -65,6 +73,7 @@ public:
      * Resolve a type given a package context
      */
     static Type resolve(Package* ctxt, std::string ident);
+    static Type resolve(Package* ctxt, ::Type* astType);
 
     llvm::Type* llvm() const;
 
@@ -147,16 +156,18 @@ public:
 };
 
 class Array {
-    llvm::Type* _llvm;
-    long        _length;
+    Type    _contained;
+    long    _length;
 public:
-    Array(llvm::Type* llvm, long length) :
-        _llvm(llvm),
+    Array(Type cont, long length) :
+        _contained(cont),
         _length(length)
     { }
 
-    DEF_GET_NP(llvm);
+    DEF_GET_NP(contained);
     DEF_GET_NP(length);
+
+    llvm::Type* llvm() const;
 };
 
 

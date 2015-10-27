@@ -657,7 +657,29 @@ void Event::processStmt(Context& ctxt, PushStmt* stmt) {
     auto memF = ctxt.mod->namedStorage()->find(outName);
     if (memF != ctxt.mod->namedStorage()->end()) {
         auto mem = memF->second;
-        val = truncOrExtend(val, mem->write()->din()->type());
+        llvm::Type* memType = mem->write()->din()->type();
+
+        auto pushArr = dynamic_cast<PushArray*>(stmt->pushsubdest_);
+        OutputPort* arrIdx = nullptr;
+        if (pushArr != nullptr) {
+            arrIdx = evalExpression(ctxt, pushArr->exp_);
+            if (!arrIdx->type()->isIntegerTy()) {
+                throw CodeError("Array index must resolve to int", stmt->line_number);
+            }
+            assert(memType->isStructTy() && "Wrong memory type constructed!");
+            auto idxType = memType->getStructElementType(1);
+            arrIdx = truncOrExtend(arrIdx, idxType);
+            memType = memType->getStructElementType(0);
+        }
+
+        val = truncOrExtend(val, memType);
+        if (arrIdx != nullptr) {
+            auto j = new Join({val->type(), arrIdx->type()});
+            connect(arrIdx, j->din(1));
+            connect(val, j->din(0));
+            val = j->dout();
+        }
+
         if (mem->write()->din()->type() != val->type()) {
             throw CodeError("Type for memory does not match expression!",
                             stmt->line_number);
@@ -740,13 +762,47 @@ struct Expression {
                  ctxt.ev->addInputPort(inId->din()));
 
             ev->_memReadConnections[exp->id_].push_back(iface);
-            ctxt.readController->newControl(ctxt.ev->conns(), inId->dout());
+            if (ctxt.readController != nullptr)
+                ctxt.readController->newControl(ctxt.ev->conns(), inId->dout());
             return ValTy(inId->dout(), tyF->second);
         }
 
         throw CodeError("Could not resolve name " + exp->id_,
                             exp->line_number);
 
+    }
+
+    static ValTy eval(const Context& ctxt, EArrAcc* exp) {
+        auto nsF = ctxt.mod->namedStorage()->find(exp->id_);
+        if (nsF == ctxt.mod->namedStorage()->end()) {
+            throw CodeError("Could not locate storage", exp->line_number);
+        }
+        auto mem = nsF->second;
+        auto idx = evalExpression(ctxt, exp->exp_).val;
+        if (!idx->type()->isIntegerTy()) {
+            throw CodeError("Array index must evaluate to int", exp->line_number);
+        }
+        idx = ctxt.ev->truncOrExtend(idx, mem->read()->req()->type());
+
+        auto tyF = ctxt.mod->nameTypes()->find(exp->id_);
+        assert(tyF != ctxt.mod->nameTypes()->end() &&
+                    "Cannot find type!");
+
+        auto readWait = new Wait(idx->type());
+        ctxt.ev->connect(idx, readWait->din());
+        readWait->newControl(ctxt.ev->conns(), ctxt.controlSignal);
+        idx = readWait->dout();
+
+        auto ev = ctxt.ev;
+        auto inId = new Identity(mem->read()->respType());
+        std::pair<OutputPort*, InputPort*> iface
+            (ctxt.ev->addOutputPort(idx),
+             ctxt.ev->addInputPort(inId->din()));
+
+        ev->_memReadConnections[exp->id_].push_back(iface);
+        if (ctxt.readController != nullptr)
+            ctxt.readController->newControl(ctxt.ev->conns(), inId->dout());
+        return ValTy(inId->dout(), tyF->second.asArray()->contained());
     }
 
     static ValTy eval(const Context& ctxt, EDot* exp) {
@@ -927,6 +983,7 @@ ValTy Expression::evalExpression(const Context& ctxt, Exp* exp) {
     TYPE_EXP_PROCESS(EDouble);
     TYPE_EXP_PROCESS(EId);
 
+    TYPE_EXP_PROCESS(EArrAcc);
     TYPE_EXP_PROCESS(EDot);
 
     TYPE_EXP_PROCESS(EPlus);

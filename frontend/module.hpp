@@ -12,6 +12,7 @@ class Select;
 
 // AST fwd. defs
 class DefConnect;
+class Type;
 
 namespace spatialc {
 
@@ -50,6 +51,7 @@ public:
     DEF_GET(nameTypes);
 
     Type getType(std::string typeName);
+    Type getType(::Type* astType);
 
 private:
     llpm::InputPort*  addInputPort(Type, std::string name);

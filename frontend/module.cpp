@@ -20,6 +20,7 @@ llpm::InputPort* SpatialCModule::addInputPort(Type ty,
         throw new SemanticError("input port " + name +
                                 " has invalid name. Name already in use");
     }
+    assert(!ty.isArray());
     _nameTypes.insert(make_pair(name, ty));
     auto sink = new NullSink(ty.llvm());
     auto ip = ContainerModule::addInputPort(sink->din(), name);
@@ -33,6 +34,7 @@ llpm::OutputPort* SpatialCModule::addOutputPort(Type ty,
         throw new SemanticError("output port " + name +
                                 " has invalid name. Name already in use");
     }
+    assert(!ty.isArray());
     _nameTypes.insert(make_pair(name, ty));
     auto sel = new Select(0, ty.llvm());
     auto op = ContainerModule::addOutputPort(sel->dout(), name);
@@ -47,6 +49,7 @@ llpm::Identity* SpatialCModule::addInternalPort(Type ty,
         throw new SemanticError("internal port " + name +
                                 " has invalid name. Name already in use");
     }
+    assert(!ty.isArray());
     _nameTypes.insert(make_pair(name, ty));
     auto id = new Identity(ty.llvm());
     _namedInternal[name] = id;
@@ -73,6 +76,16 @@ void SpatialCModule::addStorage(Type ty, std::string name) {
             throw CodeError("Submodule name already in use!");
         }
         _submodules[name] = ty.asModule();
+    } else if (ty.isArray()) {
+        auto arrTy = ty.asArray();
+        auto contained = arrTy->contained();
+        if (contained.isSimple() || contained.isStruct()) {
+            auto mem = new FiniteArray(contained.llvm(), (unsigned)arrTy->length());
+            _namedStorage[name] = mem;
+            mem->name(name);
+        } else {
+            throw CodeError("Array type for " + name + " must be simple or struct type");
+        }
     } else {
         assert(false && "Unsupported storage type");
     }
@@ -249,6 +262,10 @@ void SpatialCModule::addConnection(::DefConnect* conn) {
 
 Type SpatialCModule::getType(string typeName) {
     return Type::resolve(_package, typeName);
+}
+
+Type SpatialCModule::getType(::Type* astType) {
+    return Type::resolve(_package, astType);
 }
 
 } // namespace spatialc

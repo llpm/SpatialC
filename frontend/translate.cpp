@@ -13,9 +13,8 @@ llpm::Module* Translator::translate(Package* pkg, DefModule* modAst) {
     for (ModDef* def: *modAst->listmoddef_) {
         auto storage = dynamic_cast<DefStorage*>(def);
         if (storage != nullptr) {
-            string tyName = ((TyName*)storage->type_)->id_;
             string id = storage->id_;
-            auto ty = mod->getType(tyName);
+            auto ty = mod->getType(storage->type_);
 
             mod->addStorage(ty, id);
             continue;
@@ -23,9 +22,10 @@ llpm::Module* Translator::translate(Package* pkg, DefModule* modAst) {
 
         auto inp = dynamic_cast<DefInput*>(def);
         if (inp != nullptr) {
-            string tyName = ((TyName*)inp->type_)->id_;
             string id = inp->id_;
-            auto ty = mod->getType(tyName);
+            auto ty = mod->getType(inp->type_);
+            if (ty.isArray())
+                throw CodeError("Ports cannot be arrays", def->line_number);
 
             mod->addInputPort(ty, id);
             continue;
@@ -33,9 +33,10 @@ llpm::Module* Translator::translate(Package* pkg, DefModule* modAst) {
 
         auto outp = dynamic_cast<DefOutput*>(def);
         if (outp != nullptr) {
-            string tyName = ((TyName*)outp->type_)->id_;
             string id = outp->id_;
-            auto ty = mod->getType(tyName);
+            auto ty = mod->getType(outp->type_);
+            if (ty.isArray())
+                throw CodeError("Ports cannot be arrays", def->line_number);
 
             mod->addOutputPort(ty, id);
             continue;
@@ -43,9 +44,10 @@ llpm::Module* Translator::translate(Package* pkg, DefModule* modAst) {
 
         auto intp = dynamic_cast<DefInternal*>(def);
         if (intp != nullptr) {
-            string tyName = ((TyName*)intp->type_)->id_;
             string id = intp->id_;
-            auto ty = mod->getType(tyName);
+            auto ty = mod->getType(intp->type_);
+            if (ty.isArray())
+                throw CodeError("Ports cannot be arrays", def->line_number);
 
             mod->addInternalPort(ty, id);
             continue;
