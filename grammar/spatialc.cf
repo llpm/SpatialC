@@ -37,9 +37,13 @@ VarStmt.    Statement ::= Type Id VarAssignment ;
 AssignStmt. Statement ::= Id "=" Exp ";" ;
 IfStmt.     Statement ::= "if" "(" Exp ")" Block ElseBlock ;
 BlockStmt.  Statement ::= Block;
-PushStmt.   Statement ::= Id "<-" Exp ";" ;
+PushStmt.   Statement ::= Id PushSubDest "<-" Exp ";" ;
 ReturnStmt. Statement ::= "return" Exp ";" ;
 terminator Statement "" ;
+
+PushSubreg. PushSubDest ::= "." Id ;
+PushArray.  PushSubDest ::= "[" Exp "]" ;
+PushReg.    PushSubDest ::= ;
 
 VarAssign.  VarAssignment ::= "=" Exp ";" ;
 NoVarAssign.VarAssignment ::= ;
@@ -61,7 +65,7 @@ EString. Exp15  ::= String ;
 EId.     Exp15  ::= Id ; 
 
 EApp.    Exp15  ::= Exp15 "(" [Exp] ")" ;
-EArrAcc. Exp15  ::= Exp15  "[" Exp "]" ;
+EArrAcc. Exp15  ::= Id "[" Exp "]" ;
 EDot.    Exp15  ::= Exp15  "." Id ;
 
 ETimes.  Exp12  ::= Exp12 "*"  Exp13 ;
@@ -87,6 +91,7 @@ separator PackageName "." ;
 token Id ((letter | '_') (letter | digit | '_')*) ;
 
 TyName.      Type  ::= Id ;
+TyArray.     Type  ::= Type "[" Integer "]" ;
 
 comment "//" ;
 comment "/*" "*/" ;
