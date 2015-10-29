@@ -66,7 +66,7 @@ void SpatialCModule::addStorage(Type ty, std::string name) {
     }
     _nameTypes.insert(make_pair(name, ty));
 
-    if (ty.isSimple() || ty.isStruct()) {
+    if (ty.isSimple() || ty.isStruct() || ty.isVector()) {
         // Create a register
         auto reg = new Register(ty.llvm());
         _namedStorage[name] = reg;

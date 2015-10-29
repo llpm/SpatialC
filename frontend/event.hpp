@@ -36,13 +36,14 @@ class Event : public llpm::ContainerModule {
     void processBlock(Context&, ::Block*);
     void processStmt(Context&, VarStmt*);
     void processStmt(Context&, AssignStmt*);
+    void processStmt(Context&, AssignArrStmt*);
     void processStmt(Context&, IfStmt*);
     void processStmt(Context&, BlockStmt*);
     void processStmt(Context&, PushStmt*);
     void processStmt(Context&, ReturnStmt*);
     void scanForOutputs(::Block*);
 
-    OutputPort* evalExpression(const Context&, Exp*);
+    ValTy evalExpression(const Context&, Exp*);
 
 public:
     static Event* create(llpm::Design&,

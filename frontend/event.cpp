@@ -4,6 +4,7 @@
 #include <libraries/core/comm_intr.hpp>
 #include <libraries/core/std_library.hpp>
 #include <libraries/ext/mux_route.hpp>
+#include <libraries/util/types.hpp>
 
 #include <llvm/IR/Constants.h>
 #include <cassert>
@@ -447,6 +448,7 @@ void Event::processStatement(Context& ctxt, Statement* stmt) {
 
     TYPE_PROCESS(VarStmt);
     TYPE_PROCESS(AssignStmt);
+    TYPE_PROCESS(AssignArrStmt);
     TYPE_PROCESS(IfStmt);
     TYPE_PROCESS(BlockStmt);
     TYPE_PROCESS(PushStmt);
@@ -460,12 +462,12 @@ void Event::processStmt(Context& ctxt, VarStmt* stmt) {
         throw CodeError("Cannot redefine " + stmt->id_,
                         stmt->line_number);
     }
-    Type ty = _mod->getType(((TyName*)stmt->type_)->id_);
+    Type ty = _mod->getType(stmt->type_);
     OutputPort* op;
 
     auto assignment = dynamic_cast<VarAssign*>(stmt->varassignment_);
     if (assignment != nullptr) {
-        op = evalExpression(ctxt, assignment->exp_);
+        op = evalExpression(ctxt, assignment->exp_).val;
     } else {
         auto c = new llpm::Constant(ty.llvm());
         op = c->dout();
@@ -482,13 +484,51 @@ void Event::processStmt(Context& ctxt, AssignStmt* stmt) {
             stmt->line_number);
     }
     Variable nvar = *old;
-    nvar.op = evalExpression(ctxt, stmt->exp_);
+    nvar.op = evalExpression(ctxt, stmt->exp_).val;
     nvar.op = truncOrExtend(nvar.op, old->op->type());
     ctxt.push(nvar);
 }
 
+void Event::processStmt(Context& ctxt, AssignArrStmt* stmt) {
+    Variable* old = ctxt.find(stmt->id_);
+    if (old == nullptr) {
+        throw CodeError(
+            "Could not find variable '" + stmt->id_ + "'",
+            stmt->line_number);
+    }
+    if (!old->ty.isVector()) {
+        throw CodeError(
+            "Can only reassign elements of vectors", stmt->line_number);
+    }
+    auto val = evalExpression(ctxt, stmt->exp_2);
+    auto idx = evalExpression(ctxt, stmt->exp_1);
+
+    if (!idx.ty.llvm()->isIntegerTy()) {
+        throw CodeError(
+            "Expression in access brackets must evaluate to an integer",
+            stmt->line_number);
+    }
+
+    auto replacement = new ReplaceElement(old->op->type());
+    auto idxPort = replacement->din()->join(*ctxt.ev->conns())->din(2);
+    auto valPort = replacement->din()->join(*ctxt.ev->conns())->din(1);
+    auto origValPort = replacement->din()->join(*ctxt.ev->conns())->din(0);
+
+    idx = truncOrExtend(idx.val, idxPort->type());
+    val = truncOrExtend(val.val, valPort->type());
+
+    ctxt.ev->conns()->connect(idx.val, idxPort);
+    ctxt.ev->conns()->connect(val.val, valPort);
+    ctxt.ev->conns()->connect(old->op, origValPort);
+
+    Variable newVar = *old;
+    newVar.op = replacement->dout();
+    assert(newVar.ty.llvm() == replacement->dout()->type());
+    ctxt.push(newVar);
+}
+
 void Event::processStmt(Context& ctxt, IfStmt* stmt) {
-    OutputPort* clause = evalExpression(ctxt, stmt->exp_);
+    OutputPort* clause = evalExpression(ctxt, stmt->exp_).val;
     assert(clause != nullptr);
 
     // Process if block
@@ -637,7 +677,7 @@ ValTy Event::truncOrExtend(ValTy val, Type ty) {
 
 void Event::processStmt(Context& ctxt, PushStmt* stmt) {
     auto outName = stmt->id_;
-    auto val = evalExpression(ctxt, stmt->exp_);
+    auto val = evalExpression(ctxt, stmt->exp_).val;
     auto rtr = new Router(2, val->type());
     connect(val, rtr->din()->join(*conns(), 1));
     connect(ctxt.buildTotalBinaryClause(conns()),
@@ -671,7 +711,7 @@ void Event::processStmt(Context& ctxt, PushStmt* stmt) {
         auto pushArr = dynamic_cast<PushArray*>(stmt->pushsubdest_);
         OutputPort* arrIdx = nullptr;
         if (pushArr != nullptr) {
-            arrIdx = evalExpression(ctxt, pushArr->exp_);
+            arrIdx = evalExpression(ctxt, pushArr->exp_).val;
             if (!arrIdx->type()->isIntegerTy()) {
                 throw CodeError("Array index must resolve to int", stmt->line_number);
             }
@@ -746,21 +786,21 @@ struct Expression {
                         d)))->dout();
     }
 
-    static ValTy eval(const Context& ctxt, EId* exp) {
-        auto v = ctxt.find(exp->id_);
+    static ValTy evalId(const Context& ctxt, std::string id) {
+        auto v = ctxt.find(id);
         if (v != nullptr) {
             return ValTy(v->op, v->ty);
         }
 
-        auto nsF = ctxt.mod->namedStorage()->find(exp->id_);
+        auto nsF = ctxt.mod->namedStorage()->find(id);
         if (nsF != ctxt.mod->namedStorage()->end()) {
             auto mem = nsF->second;
             if (!mem->read()->din()->type()->isVoidTy()) {
                 throw CodeError("Cannot access complex memory '"
-                                + exp->id_ + "' by only name. This memory "
+                                + id + "' by only name. This memory "
                                 " type needs some sort of accessor.");
             }
-            auto tyF = ctxt.mod->nameTypes()->find(exp->id_);
+            auto tyF = ctxt.mod->nameTypes()->find(id);
             assert(tyF != ctxt.mod->nameTypes()->end() &&
                         "Cannot find type!");
 
@@ -770,15 +810,17 @@ struct Expression {
                 (ctxt.ev->addOutputPort(ctxt.controlSignal),
                  ctxt.ev->addInputPort(inId->din()));
 
-            ev->_memReadConnections[exp->id_].push_back(iface);
+            ev->_memReadConnections[id].push_back(iface);
             if (ctxt.readController != nullptr)
                 ctxt.readController->newControl(ctxt.ev->conns(), inId->dout());
             return ValTy(inId->dout(), tyF->second);
         }
 
-        throw CodeError("Could not resolve name " + exp->id_,
-                            exp->line_number);
+        throw CodeError("Could not resolve name " + id);
 
+    }
+    static ValTy eval(const Context& ctxt, EId* exp) {
+        return evalId(ctxt, exp->id_);
     }
 
     static ValTy eval(const Context& ctxt, EArrAcc* exp) {
@@ -787,31 +829,54 @@ struct Expression {
             throw CodeError("Could not locate storage", exp->line_number);
         }
         auto mem = nsF->second;
+        auto memTypeF = ctxt.mod->nameTypes()->find(exp->id_);
+        assert(memTypeF != ctxt.mod->nameTypes()->end());
+        auto memType = memTypeF->second;
+
         auto idx = evalExpression(ctxt, exp->exp_).val;
         if (!idx->type()->isIntegerTy()) {
             throw CodeError("Array index must evaluate to int", exp->line_number);
         }
-        idx = ctxt.ev->truncOrExtend(idx, mem->read()->req()->type());
 
-        auto tyF = ctxt.mod->nameTypes()->find(exp->id_);
-        assert(tyF != ctxt.mod->nameTypes()->end() &&
-                    "Cannot find type!");
+        if (memType.isArray()) {
+            idx = ctxt.ev->truncOrExtend(idx, mem->read()->req()->type());
 
-        auto readWait = new Wait(idx->type());
-        ctxt.ev->connect(idx, readWait->din());
-        readWait->newControl(ctxt.ev->conns(), ctxt.controlSignal);
-        idx = readWait->dout();
+            auto tyF = ctxt.mod->nameTypes()->find(exp->id_);
+            assert(tyF != ctxt.mod->nameTypes()->end() &&
+                        "Cannot find type!");
 
-        auto ev = ctxt.ev;
-        auto inId = new Identity(mem->read()->respType());
-        std::pair<OutputPort*, InputPort*> iface
-            (ctxt.ev->addOutputPort(idx),
-             ctxt.ev->addInputPort(inId->din()));
+            auto readWait = new Wait(idx->type());
+            ctxt.ev->connect(idx, readWait->din());
+            readWait->newControl(ctxt.ev->conns(), ctxt.controlSignal);
+            idx = readWait->dout();
 
-        ev->_memReadConnections[exp->id_].push_back(iface);
-        if (ctxt.readController != nullptr)
-            ctxt.readController->newControl(ctxt.ev->conns(), inId->dout());
-        return ValTy(inId->dout(), tyF->second.asArray()->contained());
+            auto ev = ctxt.ev;
+            auto inId = new Identity(mem->read()->respType());
+            std::pair<OutputPort*, InputPort*> iface
+                (ctxt.ev->addOutputPort(idx),
+                 ctxt.ev->addInputPort(inId->din()));
+
+            ev->_memReadConnections[exp->id_].push_back(iface);
+            if (ctxt.readController != nullptr)
+                ctxt.readController->newControl(ctxt.ev->conns(), inId->dout());
+            return ValTy(inId->dout(), tyF->second.asArray()->contained());
+        } else if (memType.isVector()) {
+            auto vecVal = evalId(ctxt, exp->id_);
+
+            auto split = vecVal.val->split(*ctxt.ev->conns());
+            auto mux = new Multiplexer(memType.asVector()->length(), 
+                                       memType.asVector()->contained().llvm());
+            auto muxIn = mux->din()->join(*ctxt.ev->conns());
+            idx = ctxt.ev->truncOrExtend(idx, muxIn->din(0)->type());
+            ctxt.ev->conns()->connect(idx, muxIn->din(0));
+            for (unsigned i=0; i<memType.asVector()->length(); i++) {
+                ctxt.ev->conns()->connect(split->dout(i), muxIn->din(i+1));
+            }
+            return ValTy(mux->dout(), memType.asVector()->contained());
+        } else {
+            throw CodeError("Cannot apply array access operator to this memory type",
+                            exp->line_number);
+        }
     }
 
     static ValTy eval(const Context& ctxt, EStructLiteral* exp) {
@@ -1056,8 +1121,8 @@ ValTy Expression::evalExpression(const Context& ctxt, Exp* exp) {
                     exp->line_number);
 }
 
-OutputPort* Event::evalExpression(const Context& ctxt, Exp* exp) {
-    return Expression::evalExpression(ctxt, exp).val;
+ValTy Event::evalExpression(const Context& ctxt, Exp* exp) {
+    return Expression::evalExpression(ctxt, exp);
 }
 
 } // namespace spatialc

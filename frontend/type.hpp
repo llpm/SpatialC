@@ -23,11 +23,13 @@ namespace spatialc {
 class Package;
 class Struct;
 class Array;
+class Vector;
 
 class Type {
     llvm::Type*   _simple;
     Struct*       _struct;
     Array*        _array;
+    Vector*       _vector;
     llpm::Module* _module;
 
 public:
@@ -35,6 +37,7 @@ public:
         _simple(simple),
         _struct(nullptr),
         _array(nullptr),
+        _vector(nullptr),
         _module(nullptr)
     { }
 
@@ -42,6 +45,7 @@ public:
         _simple(nullptr),
         _struct(strct),
         _array(nullptr),
+        _vector(nullptr),
         _module(nullptr)
     { }
 
@@ -49,6 +53,15 @@ public:
         _simple(nullptr),
         _struct(nullptr),
         _array(arr),
+        _vector(nullptr),
+        _module(nullptr)
+    { }
+
+    Type(Vector* vec) :
+        _simple(nullptr),
+        _struct(nullptr),
+        _array(nullptr),
+        _vector(vec),
         _module(nullptr)
     { }
 
@@ -56,6 +69,7 @@ public:
         _simple(nullptr),
         _struct(nullptr),
         _array(nullptr),
+        _vector(nullptr),
         _module(mod)
     { }
 
@@ -64,6 +78,7 @@ public:
         _simple(nullptr),
         _struct(nullptr),
         _array(nullptr),
+        _vector(nullptr),
         _module(nullptr)
     { }
 
@@ -85,6 +100,10 @@ public:
         return _array != nullptr;
     }
 
+    bool isVector() const {
+        return _vector != nullptr;
+    }
+
     bool isStruct() const {
         return _struct != nullptr;
     }
@@ -99,6 +118,10 @@ public:
 
     Array* asArray() {
         return _array;
+    }
+
+    Vector* asVector() {
+        return _vector;
     }
 
     llpm::Module* asModule() {
@@ -163,6 +186,21 @@ class Array {
     long    _length;
 public:
     Array(Type cont, long length) :
+        _contained(cont),
+        _length(length)
+    { }
+
+    DEF_GET_NP(contained);
+    DEF_GET_NP(length);
+
+    llvm::Type* llvm() const;
+};
+
+class Vector {
+    Type    _contained;
+    long    _length;
+public:
+    Vector(Type cont, long length) :
         _contained(cont),
         _length(length)
     { }

@@ -64,6 +64,8 @@ llvm::Type* Type::llvm() const {
         return _struct->llvm();
     if (_array)
         return _array->llvm();
+    if (_vector)
+        return _vector->llvm();
     return nullptr;
 }
 
@@ -112,11 +114,23 @@ Type Type::resolve(Package* ctxt, ::Type* astType) {
         return Type(arr);
     }
 
+    auto tyVector = dynamic_cast<TyVector*>(astType);
+    if (tyVector != nullptr) {
+        auto vec = new Vector(
+            resolve(ctxt, tyVector->type_),
+            tyVector->integer_);
+        return Type(vec);
+    }
+
     assert(false && "I don't recognize this type definition!");
 }
 
 llvm::Type* Array::llvm() const {
     return llvm::ArrayType::get(_contained.llvm(), _length);
+}
+
+llvm::Type* Vector::llvm() const {
+    return llvm::VectorType::get(_contained.llvm(), _length);
 }
 
 } // namespace spatialc

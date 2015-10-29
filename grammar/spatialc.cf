@@ -33,13 +33,14 @@ terminator StructDef "" ;
 rules FuncParam ::= Type Id ;
 separator FuncParam "," ;
 
-VarStmt.    Statement ::= Type Id VarAssignment ;
-AssignStmt. Statement ::= Id "=" Exp ";" ;
-IfStmt.     Statement ::= "if" "(" Exp ")" Block ElseBlock ;
-BlockStmt.  Statement ::= Block;
-PushStmt.   Statement ::= Id PushSubDest "<-" Exp ";" ;
-ReturnStmt. Statement ::= "return" Exp ";" ;
-terminator Statement "" ;
+VarStmt.       Statement ::= Type Id VarAssignment ;
+AssignStmt.    Statement ::= Id "=" Exp ";" ;
+AssignArrStmt. Statement ::= Id "[" Exp "]" "=" Exp ";" ;
+IfStmt.        Statement ::= "if" "(" Exp ")" Block ElseBlock ;
+BlockStmt.     Statement ::= Block;
+PushStmt.      Statement ::= Id PushSubDest "<-" Exp ";" ;
+ReturnStmt.    Statement ::= "return" Exp ";" ;
+terminator     Statement "" ;
 
 PushSubreg. PushSubDest ::= "." Id ;
 PushArray.  PushSubDest ::= "[" Exp "]" ;
@@ -96,6 +97,7 @@ token Id ((letter | '_') (letter | digit | '_')*) ;
 
 TyName.      Type  ::= Id ;
 TyArray.     Type  ::= Type "[" Integer "]" ;
+TyVector.    Type  ::= Type "<" Integer ">" ;
 
 comment "//" ;
 comment "/*" "*/" ;
