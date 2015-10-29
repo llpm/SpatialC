@@ -14,7 +14,7 @@ print "Using LLPM tree at:", LlpmPath
 
 LibPaths = [".", "./bin/", LlpmPath + "bin/llvm/lib", LlpmPath + "bin/"]
 CxxLdFlags = """
--g -pthread -fno-omit-frame-pointer
+-g -pthread -fno-omit-frame-pointer -Wno-unused-parameter
 """.split()
 
 env = Environment(
@@ -24,7 +24,7 @@ env = Environment(
             -D_GNU_SOURCE -D__STDC_CONSTANT_MACROS
             -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS """.split()
             + CxxLdFlags,
-    LIBS="""tinyxml2 boost_program_options LLVM-3.5 llpm""".split(),
+    LIBS="""tinyxml2 boost_program_options LLVM-3.7 llpm link_hacks""".split(),
     LIBPATH=LibPaths,
     LINKFLAGS=[]
               + CxxLdFlags
