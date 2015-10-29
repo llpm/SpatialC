@@ -792,6 +792,17 @@ struct Expression {
             return ValTy(v->op, v->ty);
         }
 
+        auto tyF = ctxt.mod->nameTypes()->find(id);
+        if (tyF == ctxt.mod->nameTypes()->end()) {
+            throw CodeError("Cannot resolve identifier '" + id + "'");
+        }
+        auto ty = tyF->second;
+
+        if (ty.isArray()) {
+            // Memory accesses get figured out one level up the stack
+            return ValTy(nullptr, ty);
+        }
+
         auto nsF = ctxt.mod->namedStorage()->find(id);
         if (nsF != ctxt.mod->namedStorage()->end()) {
             auto mem = nsF->second;
@@ -800,9 +811,6 @@ struct Expression {
                                 + id + "' by only name. This memory "
                                 " type needs some sort of accessor.");
             }
-            auto tyF = ctxt.mod->nameTypes()->find(id);
-            assert(tyF != ctxt.mod->nameTypes()->end() &&
-                        "Cannot find type!");
 
             auto ev = ctxt.ev;
             auto inId = new Identity(mem->read()->respType());
@@ -824,24 +832,33 @@ struct Expression {
     }
 
     static ValTy eval(const Context& ctxt, EArrAcc* exp) {
-        auto nsF = ctxt.mod->namedStorage()->find(exp->id_);
-        if (nsF == ctxt.mod->namedStorage()->end()) {
-            throw CodeError("Could not locate storage", exp->line_number);
-        }
-        auto mem = nsF->second;
-        auto memTypeF = ctxt.mod->nameTypes()->find(exp->id_);
-        assert(memTypeF != ctxt.mod->nameTypes()->end());
-        auto memType = memTypeF->second;
+        auto val = evalExpression(ctxt, exp->exp_1);
 
-        auto idx = evalExpression(ctxt, exp->exp_).val;
+        auto idx = evalExpression(ctxt, exp->exp_2).val;
         if (!idx->type()->isIntegerTy()) {
             throw CodeError("Array index must evaluate to int", exp->line_number);
         }
 
-        if (memType.isArray()) {
+        if (val.ty.isArray()) {
+            string id;
+            auto eid = dynamic_cast<EId*>(exp->exp_1);
+            if (eid == nullptr)
+                throw CodeError("For accessing into memory array, storage name"
+                                " must appear directly before []", exp->line_number);
+            id = eid->id_;
+
+            auto nsF = ctxt.mod->namedStorage()->find(id);
+            if (nsF == ctxt.mod->namedStorage()->end()) {
+                throw CodeError("Could not locate storage", exp->line_number);
+            }
+            auto mem = nsF->second;
+            auto memTypeF = ctxt.mod->nameTypes()->find(id);
+            assert(memTypeF != ctxt.mod->nameTypes()->end());
+            auto memType = memTypeF->second;
+
             idx = ctxt.ev->truncOrExtend(idx, mem->read()->req()->type());
 
-            auto tyF = ctxt.mod->nameTypes()->find(exp->id_);
+            auto tyF = ctxt.mod->nameTypes()->find(id);
             assert(tyF != ctxt.mod->nameTypes()->end() &&
                         "Cannot find type!");
 
@@ -856,23 +873,22 @@ struct Expression {
                 (ctxt.ev->addOutputPort(idx),
                  ctxt.ev->addInputPort(inId->din()));
 
-            ev->_memReadConnections[exp->id_].push_back(iface);
+            ev->_memReadConnections[id].push_back(iface);
             if (ctxt.readController != nullptr)
                 ctxt.readController->newControl(ctxt.ev->conns(), inId->dout());
             return ValTy(inId->dout(), tyF->second.asArray()->contained());
-        } else if (memType.isVector()) {
-            auto vecVal = evalId(ctxt, exp->id_);
+        } else if (val.ty.isVector()) {
 
-            auto split = vecVal.val->split(*ctxt.ev->conns());
-            auto mux = new Multiplexer(memType.asVector()->length(), 
-                                       memType.asVector()->contained().llvm());
+            auto split = val.val->split(*ctxt.ev->conns());
+            auto mux = new Multiplexer(val.ty.asVector()->length(), 
+                                       val.ty.asVector()->contained().llvm());
             auto muxIn = mux->din()->join(*ctxt.ev->conns());
             idx = ctxt.ev->truncOrExtend(idx, muxIn->din(0)->type());
             ctxt.ev->conns()->connect(idx, muxIn->din(0));
-            for (unsigned i=0; i<memType.asVector()->length(); i++) {
+            for (unsigned i=0; i<val.ty.asVector()->length(); i++) {
                 ctxt.ev->conns()->connect(split->dout(i), muxIn->din(i+1));
             }
-            return ValTy(mux->dout(), memType.asVector()->contained());
+            return ValTy(mux->dout(), val.ty.asVector()->contained());
         } else {
             throw CodeError("Cannot apply array access operator to this memory type",
                             exp->line_number);

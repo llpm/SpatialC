@@ -21,6 +21,7 @@ module Simple {
     }
 
     event (reqSum -> r) {
-        sum <- vec[0] + vec[1] + vec[2] + vec[3];
+        int<4> v = vec;
+        sum <- v[0] + v[1] + v[2] + v[3];
     }
 }

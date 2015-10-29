@@ -1,4 +1,4 @@
-OPTS=--control_regions 0
+OPTS=--control_regions 1
 CFLAGS=-O0
 CXXFLAGS=${CFLAGS}
 

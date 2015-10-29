@@ -65,7 +65,7 @@ EString. Exp15  ::= String ;
 EId.     Exp15  ::= Id ; 
 
 EApp.    Exp15  ::= Exp15 "(" [Exp] ")" ;
-EArrAcc. Exp15  ::= Id "[" Exp "]" ;
+EArrAcc. Exp15  ::= Exp15 "[" Exp "]" ;
 EDot.    Exp15  ::= Exp15  "." Id ;
 
 EStructLiteral. Exp14 ::= Id "{" [StructLiteralField] "}" ;
