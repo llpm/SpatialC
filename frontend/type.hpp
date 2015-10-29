@@ -92,6 +92,16 @@ public:
 
     llvm::Type* llvm() const;
 
+    bool isValid() const {
+        unsigned count = 0;
+        if (isSimple()) count++;
+        if (isArray())  count++;
+        if (isVector()) count++;
+        if (isStruct()) count++;
+        if (isModule()) count++;
+        return count == 1;
+    }
+
     bool isSimple() const {
         return _simple != nullptr;
     }

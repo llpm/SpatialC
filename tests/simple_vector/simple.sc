@@ -10,14 +10,21 @@ module Simple {
     int<4> vec;
 
     input Write write;
+    output int writeDone;
+    input void resetVec;
     
     input void reqSum;
     output int sum;
 
-    event (write -> w) {
+    event (resetVec -> msg) {
+        vec <- [0, 0, 0, 0];
+    }
+
+    event (write -> w) atomic {
         int<4> tmp = vec;
         tmp[w.idx] = w.value;
         vec <- tmp;
+        writeDone <- 1;
     }
 
     event (reqSum -> r) {

@@ -935,6 +935,27 @@ struct Expression {
         }
         return ValTy(j->dout(), ty);
     }
+    static ValTy eval(const Context& ctxt, EVectorLiteral* expLit) {
+        vector<ValTy> vals;
+        Type largest;
+        for (auto exp: *expLit->listexp_) {
+            auto val = evalExpression(ctxt, exp);
+            if (!largest.isValid() ||
+                    val.ty.llvm()->getPrimitiveSizeInBits() >
+                    largest.llvm()->getPrimitiveSizeInBits())
+                largest = val.ty;
+            vals.push_back(val);
+        }
+
+        auto vecTy = new Vector(largest, vals.size());
+        auto join = new Join(vecTy->llvm());
+        assert(join->dout()->type() == vecTy->llvm());
+        for (unsigned i=0; i<vals.size(); i++) {
+            vals[i] = ctxt.ev->truncOrExtend(vals[i], largest.llvm());
+            ctxt.ev->connect(vals[i].val, join->din(i));
+        }
+        return ValTy(join->dout(), Type(vecTy));
+    }
 
     static ValTy eval(const Context& ctxt, EDot* exp) {
         auto val = evalExpression(ctxt, exp->exp_);
@@ -1118,6 +1139,7 @@ ValTy Expression::evalExpression(const Context& ctxt, Exp* exp) {
     TYPE_EXP_PROCESS(EDot);
 
     TYPE_EXP_PROCESS(EStructLiteral);
+    TYPE_EXP_PROCESS(EVectorLiteral);
 
     TYPE_EXP_PROCESS(EPlus);
     TYPE_EXP_PROCESS(EMinus);
