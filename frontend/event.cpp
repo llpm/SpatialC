@@ -451,6 +451,8 @@ void Event::processStatement(Context& ctxt, Statement* stmt) {
     TYPE_PROCESS(BlockStmt);
     TYPE_PROCESS(PushStmt);
     TYPE_PROCESS(ReturnStmt);
+
+    assert(false && "Did not know how to process statement!");
 }
 
 void Event::processStmt(Context& ctxt, VarStmt* stmt) {
