@@ -5,6 +5,7 @@
 #include <libraries/core/std_library.hpp>
 #include <libraries/ext/mux_route.hpp>
 #include <libraries/util/types.hpp>
+#include <libraries/synthesis/pipeline.hpp>
 
 #include <llvm/IR/Constants.h>
 #include <cassert>
@@ -617,8 +618,14 @@ void Event::processBlock(Context& ctxt, ::Block* blockSorta) {
 
     if (atomic) {
         auto nextAllowedWait = new Wait(atomicWaitControlSelect->dout()->type());
+
+        //Insert pipeline register just after this next allowed wait. Seems to
+        //be necessary to avoid some deadline, though ideally LLPM would detect
+        //and fix this condition
+        auto preg = new PipelineRegister(nextAllowedWait->dout());
+        conns()->connect(nextAllowedWait->dout(), preg->din());
         conns()->connect(
-            nextAllowedWait->dout(),
+            preg->dout(),
             atomicWaitControlSelect->createInput());
         auto tokenConst = Constant::getVoid(_mod->design());
         conns()->connect(tokenConst->dout(), nextAllowedWait->din());
