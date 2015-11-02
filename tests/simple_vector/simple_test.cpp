@@ -22,6 +22,7 @@ int main() {
         uint32_t tmp;
         s->writeDone(&tmp);
         printf("Finished write with %u\n", tmp);
+        s->run(2);
     }
     
     s->run(20);
