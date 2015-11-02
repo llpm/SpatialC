@@ -75,7 +75,21 @@ void SpatialCModule::addStorage(Type ty, std::string name) {
         if (_submodules.find(name) != _submodules.end()) {
             throw CodeError("Submodule name already in use!");
         }
-        _submodules[name] = ty.asModule();
+        auto mod = ty.asModule();
+        _submodules[name] = mod;
+
+        // For each submodule port, automatically add and connect an internal
+        // channel to make it easier for users
+        for (auto ip: mod->inputs()) {
+            auto ipName = name + "." + ip->name();
+            auto id = addInternalPort(Type(ip->type()), ipName);
+            conns()->connect(id->dout(), ip);
+        }
+        for (auto op: mod->outputs()) {
+            auto opName = name + "." + op->name();
+            auto id = addInternalPort(Type(op->type()), opName);
+            conns()->connect(_internalSelects[id]->createInput(), op);
+        }
     } else if (ty.isArray()) {
         auto arrTy = ty.asArray();
         auto contained = arrTy->contained();
@@ -220,10 +234,9 @@ void SpatialCModule::addConnection(::DefConnect* conn) {
 
     auto smIP = smPort->asInput();
     if (smIP != nullptr) {
-        // Submodule port is an INPUT
-        if (conns()->findSource(smIP) != nullptr) {
-            throw CodeError("Port connected to multiple sources", conn->line_number);
-        }
+        auto id = _namedInternal[conn->id_1 + "." + smIP->name()];
+        assert(id != nullptr);
+        smIP = _internalSelects[id]->createInput();
 
         auto inpF = _namedInputs.find(conn->id_3);
         if (inpF != _namedInputs.end()) {

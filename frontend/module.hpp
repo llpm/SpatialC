@@ -49,6 +49,7 @@ public:
     DEF_GET(namedStorage);
     DEF_GET(namedInternal);
     DEF_GET(nameTypes);
+    DEF_GET(submodules);
 
     Type getType(std::string typeName);
     Type getType(::Type* astType);

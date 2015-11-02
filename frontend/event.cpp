@@ -288,6 +288,30 @@ Event::Event(llpm::Design& design, std::string name, SpatialCModule* mod) :
     _mod(mod) {
 }
 
+static std::string getEvName(EventOrList* orEv) {
+    auto simple = dynamic_cast<SimpleOrList*>(orEv);
+    if (simple != nullptr)
+        return simple->id_;
+
+    auto sub = dynamic_cast<SubmodOrList*>(orEv);
+    if (sub != nullptr)
+        return sub->id_1 + "." + sub->id_2;
+
+    assert(false);
+}
+
+static std::string getEvName(EventOrCond* cond) {
+    auto simple = dynamic_cast<SimpleEvOr*>(cond);
+    if (simple != nullptr)
+        return simple->id_;
+
+    auto sub = dynamic_cast<SubmodEvOr*>(cond);
+    if (sub != nullptr)
+        return sub->id_1 + "." + sub->id_2;
+
+    return "";
+}
+
 void Event::buildInitial(Context& ctxt, ListEventParam* list) {
     for (auto evParamI: *list) {
         auto evParam = dynamic_cast<EventParam1*>(evParamI);
@@ -296,16 +320,16 @@ void Event::buildInitial(Context& ctxt, ListEventParam* list) {
         string paramName = evParam->id_;
         vector<string> inpNames;
         
-        auto simpleEvOr = dynamic_cast<SimpleEvOr*>(evParam->eventorcond_);
-        if (simpleEvOr != nullptr) {
+        auto simpleName = getEvName(evParam->eventorcond_);
+        if (simpleName != "") {
             // No or condition -- just a simple input
-            inpNames.push_back(simpleEvOr->id_);
+            inpNames.push_back(simpleName);
         }
 
         auto orList = dynamic_cast<ListEvOr*>(evParam->eventorcond_);
         if (orList != nullptr) {
             for (EventOrList* orEv: *orList->listeventorlist_) {
-                inpNames.push_back(((EventOrListId*)orEv)->id_);
+                inpNames.push_back(getEvName(orEv));
             }
         }
 
@@ -378,6 +402,17 @@ void Event::scanForOutputs(::Block* blockD) {
         auto pushStmt = dynamic_cast<PushStmt*>(stmt);
         if (pushStmt != nullptr) {
             string outName = pushStmt->id_;
+
+            if (mod()->submodules()->count(outName) > 0) {
+                auto pushSubreg = dynamic_cast<PushSubreg*>(pushStmt->pushsubdest_);
+                if (pushSubreg == nullptr) {
+                    throw CodeError(
+                        "When pushing to submodule, a channel in the "
+                        "submodule must be specified",
+                        stmt->line_number);
+                }
+                outName += "." + pushSubreg->id_;
+            }
 
             // Look for storage by this name
             auto fs = _mod->namedStorage()->find(outName);

@@ -21,9 +21,11 @@ rules EventParam ::= EventOrCond "->" Id ;
 separator EventParam "," ;
 
 SimpleEvOr. EventOrCond ::= Id ;
+SubmodEvOr. EventOrCond ::= Id "." Id ;
 ListEvOr.   EventOrCond ::= "(" [EventOrList] ")" ;
 
-rules EventOrList ::= Id ;
+SimpleOrList. EventOrList ::= Id ;
+SubmodOrList. EventOrList ::= Id "." Id ;
 separator EventOrList "|" ;
 
 DefSubstor. StructDef ::= Type Id ";" ;
