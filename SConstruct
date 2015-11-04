@@ -24,7 +24,8 @@ env = Environment(
             -D_GNU_SOURCE -D__STDC_CONSTANT_MACROS
             -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS """.split()
             + CxxLdFlags,
-    LIBS="""tinyxml2 boost_program_options LLVM-3.7 llpm link_hacks""".split(),
+    LIBS="""tinyxml2 boost_program_options boost_filesystem boost_system
+            LLVM-3.7 llpm link_hacks""".split(),
     LIBPATH=LibPaths,
     LINKFLAGS=[]
               + CxxLdFlags
