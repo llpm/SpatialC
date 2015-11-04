@@ -13,6 +13,7 @@ class Select;
 // AST fwd. defs
 class DefConnect;
 class Type;
+class ChannelSpecifier;
 
 namespace spatialc {
 
@@ -61,6 +62,7 @@ private:
     void addStorage(Type, std::string name);
     void addEvent(Event*);
     void addConnection(::DefConnect*);
+    llpm::Port* resolve(::ChannelSpecifier*, bool isOutput);
 };
 
 }

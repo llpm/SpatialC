@@ -11,8 +11,11 @@ DefInput.   ModDef ::= "input" Type Id ";" ;
 DefOutput.  ModDef ::= "output" Type Id ";" ;
 DefInternal.ModDef ::= "internal" Type Id ";" ;
 DefEvent.   ModDef ::= "event" EventName "(" [EventParam] ")" Block ;
-DefConnect. ModDef ::= Id "." Id "<>" Id ";" ;
+DefConnect. ModDef ::= ChannelSpecifier "->" ChannelSpecifier ";" ;
 terminator ModDef "" ;
+
+SimpleCS.   ChannelSpecifier ::= Id;
+DotCS.      ChannelSpecifier ::= Id "." Id ;
 
 NoEvName.   EventName ::= ;
 EvName.     EventName ::= "\"" Id "\"" ;

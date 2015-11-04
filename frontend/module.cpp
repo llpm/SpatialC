@@ -201,76 +201,101 @@ void SpatialCModule::addEvent(Event* ev) {
 }
 
 void SpatialCModule::addConnection(::DefConnect* conn) {
-    auto smF = _submodules.find(conn->id_1);
-    if (smF == _submodules.end()) {
-        throw CodeError("Could not find submodule " + conn->id_1, conn->line_number);
+    auto portA = resolve(conn->channelspecifier_1, true)->asOutput();
+    auto portB = resolve(conn->channelspecifier_2, false)->asInput(); 
+    if (portA == nullptr || portB == nullptr) {
+        throw CodeError("Could not resolve ports specified", conn->line_number);
     }
-    auto sm = smF->second;
+    conns()->connect(portA, portB);
+}
 
-    Port* smPort = nullptr;
-    for (auto ip: sm->inputs()) {
-        if (ip->name() == conn->id_2) {
-            if (smPort != nullptr) {
-                throw CodeError("Found multiple ports called " + conn->id_2);
-            }
-            smPort = ip;
-        }
-    }
-
-    for (auto op: sm->outputs()) {
-        if (op->name() == conn->id_2) {
-            if (smPort != nullptr) {
-                throw CodeError("Found multiple ports called " + conn->id_2);
-            }
-            smPort = op;
-        }
-    }
-
-    if (smPort == nullptr) {
-        if (smPort != nullptr) {
-            throw CodeError("Could not fine port called " + conn->id_2);
-        }
-    }
-
-    auto smIP = smPort->asInput();
-    if (smIP != nullptr) {
-        auto id = _namedInternal[conn->id_1 + "." + smIP->name()];
-        assert(id != nullptr);
-        smIP = _internalSelects[id]->createInput();
-
-        auto inpF = _namedInputs.find(conn->id_3);
-        if (inpF != _namedInputs.end()) {
-            // Submodule port is driven by one of our inputs
-            conns()->connect(getDriver(inpF->second), smIP);
-        } else {
-            // Submodule port is driver by one of our internal channels
-            auto intF = _namedInternal.find(conn->id_3);
-            if (intF != _namedInternal.end()) {
-                conns()->connect(intF->second->dout(), smIP);
+llpm::Port* SpatialCModule::resolve(::ChannelSpecifier* cs, bool isOutput) {
+    auto simple = dynamic_cast<SimpleCS*>(cs);
+    if (simple != nullptr) {
+        if (isOutput) {
+            auto inpF = _namedInputs.find(simple->id_);
+            if (inpF != _namedInputs.end()) {
+                // Submodule port is driven by one of our inputs
+                return getDriver(inpF->second);
             } else {
-                throw CodeError("Could not find driver " + conn->id_3, conn->line_number);
+                // Submodule port is driver by one of our internal channels
+                auto intF = _namedInternal.find(simple->id_);
+                if (intF != _namedInternal.end()) {
+                    return intF->second->dout();
+                } else {
+                    throw CodeError("Could not find driver " + simple->id_,
+                                    simple->line_number);
+                }
             }
+            throw CodeError("Could not find output called " +
+                            simple->id_, simple->line_number);
+        } else {
+            auto outF = _namedOutputs.find(simple->id_);
+            if (outF != _namedOutputs.end()) {
+                // Submodule port is drives one of our outputs 
+                return _outputSelects[outF->second]->createInput();
+            } else {
+                // Submodule port is drives one of our internal channels
+                auto intF = _namedInternal.find(simple->id_);
+                if (intF != _namedInternal.end()) {
+                    return _internalSelects[intF->second]->createInput();
+                } else {
+                    throw CodeError("Could not find sink " + simple->id_,
+                                    simple->line_number);
+                }
+            }
+            throw CodeError("Could not find output called " +
+                            simple->id_, simple->line_number);
         }
     }
 
-    auto smOP = smPort->asOutput();
-    if (smOP != nullptr) {
-        // Submodule port is an OUTPUT
-        
-        auto outF = _namedOutputs.find(conn->id_3);
-        if (outF != _namedOutputs.end()) {
-            // Submodule port is drives one of our outputs 
-            conns()->connect(_outputSelects[outF->second]->createInput(), smOP);
-        } else {
-            // Submodule port is drives one of our internal channels
-            auto intF = _namedInternal.find(conn->id_3);
-            if (intF != _namedInternal.end()) {
-                conns()->connect(_internalSelects[intF->second]->createInput(), smOP);
-            } else {
-                throw CodeError("Could not find sink " + conn->id_3, conn->line_number);
-            }
+    auto dot = dynamic_cast<DotCS*>(cs);
+    if (dot != nullptr) {
+        auto smF = _submodules.find(dot->id_1);
+        if (smF == _submodules.end()) {
+            throw CodeError("Could not find submodule " + dot->id_1, dot->line_number);
         }
+        auto sm = smF->second;
+
+        Port* smPort = nullptr;
+        if (isOutput) {
+            for (auto op: sm->outputs()) {
+                if (op->name() == dot->id_2) {
+                    if (smPort != nullptr) {
+                        throw CodeError("Found multiple ports called " + dot->id_2);
+                    }
+                    smPort = op;
+                }
+            }
+        } else {
+            InputPort* smIP = nullptr;
+            for (auto ip: sm->inputs()) {
+                if (ip->name() == dot->id_2) {
+                    if (smPort != nullptr) {
+                        throw CodeError("Found multiple ports called " + dot->id_2);
+                    }
+                    smIP = ip;
+                    smPort = ip;
+                }
+            }
+
+            auto id = _namedInternal[dot->id_1 + "." + smIP->name()];
+            assert(id != nullptr);
+            smIP = _internalSelects[id]->createInput();
+            smPort = smIP; 
+        }
+
+        if (smPort == nullptr) {
+            if (isOutput)
+                throw CodeError("Could not find output port called " + dot->id_2);
+            else
+                throw CodeError("Could not find input port called " + dot->id_2);
+        }
+
+        return smPort;
     }
+
+    assert(false);
 }
 
 Type SpatialCModule::getType(string typeName) {
