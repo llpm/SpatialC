@@ -45,7 +45,7 @@ int main(int argc, char** argv) {
         includeDirs = vm["include"].as<vector<string>>();
 
         PackageSet ps(d, includeDirs);
-        llpm::Module* hwMod = ps.getModule(modName);
+        llpm::Module* hwMod = ps.instantiateModule(modName);
 
         if (hwMod == nullptr) {
             fprintf(stderr, "Could not find module %s\n", modName.c_str());

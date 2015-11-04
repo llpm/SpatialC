@@ -69,13 +69,13 @@ Package* PackageSet::getPackage(std::string pkgName) {
     return _packages.find(pkgName)->second;
 }
 
-llpm::Module* PackageSet::getModule(std::string fqName) {
+llpm::Module* PackageSet::instantiateModule(std::string fqName) {
     string pkgName, obj;
     splitName(fqName, pkgName, obj);
     Package* pkg = getPackage(pkgName);
     if (pkg == nullptr)
         return nullptr;
-    return pkg->getModule(obj);
+    return pkg->instantiateModule(obj);
 }
 
 void PackageSet::splitName(string fqName,
@@ -170,15 +170,12 @@ void Package::lazyBuild(::Package* pkgAst) {
     return f->second;
 }
 
-llpm::Module* Package::getModule(std::string moduleName) {
-    auto f = _modules.find(moduleName);
-    if (f != _modules.end())
-        return f->second;
+llpm::Module* Package::instantiateModule(std::string moduleName) {
     auto ast = getModuleAST(moduleName);
     if (ast == nullptr)
         return nullptr;
     auto mod = _set->trans()->translate(this, ast);
-    _modules[moduleName] = mod;
+    _modules[moduleName].insert(mod);
     return mod;
 }
 
@@ -191,7 +188,7 @@ bool Package::findTypeLocal(std::string typeName, Type& ty) {
 
     auto modF = _moduleASTs.find(typeName);
     if (modF != _moduleASTs.end()) {
-        ty = Type(getModule(typeName));
+        ty = Type(instantiateModule(typeName));
         return true;
     }
 

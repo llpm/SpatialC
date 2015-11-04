@@ -49,7 +49,7 @@ public:
     ::DefModule* getModuleAST(std::string fqModuleName);
 
     Package* getPackage(std::string pkgName);
-    llpm::Module* getModule(std::string fqName);
+    llpm::Module* instantiateModule(std::string fqName);
 
     static void splitName(std::string fqName,
                           std::string& package,
@@ -69,7 +69,7 @@ class Package {
     std::map<std::string, ::DefStruct*> _structASTs;
 
     std::map<std::string, Struct*> _structs;
-    std::map<std::string, llpm::Module*> _modules;
+    std::map<std::string, std::set<llpm::Module*>> _modules;
 
     std::set<Package*>             _imports;
 
@@ -92,7 +92,7 @@ public:
     bool resolveNamedType(std::string typeName, Type& ty);
 
     ::DefModule*  getModuleAST(std::string moduleName);
-    llpm::Module* getModule(std::string moduleName);
+    llpm::Module* instantiateModule(std::string moduleName);
 };
 
 }
