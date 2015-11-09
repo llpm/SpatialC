@@ -63,6 +63,9 @@ private:
     void addEvent(Event*);
     void addConnection(::DefConnect*);
     llpm::Port* resolve(::ChannelSpecifier*, bool isOutput);
+
+    bool handleDeclDef(Context& ctxt, ModDef*);
+    bool handleModDef(Context& ctxt, ModDef*);
 };
 
 class SpatialCModuleTemplate {
@@ -72,6 +75,7 @@ class SpatialCModuleTemplate {
     std::map<std::string, Variable> _args;
 
     void parseParams();
+
 
 public:
     SpatialCModuleTemplate(Package* pkg, DefModule* modAst) :

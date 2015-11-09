@@ -6,6 +6,10 @@
 #include <libraries/core/logic_intr.hpp>
 #include <libraries/core/comm_intr.hpp>
 
+#include <analysis/constant.hpp>
+
+#include <llvm/IR/Constants.h>
+
 using namespace std;
 
 namespace spatialc {
@@ -307,6 +311,90 @@ Type SpatialCModule::getType(const Context* ctxt, ::Type* astType) {
     return Type::resolve(ctxt, astType);
 }
 
+
+bool SpatialCModule::handleDeclDef(Context& ctxt, ModDef* def) {
+    auto storage = dynamic_cast<DefStorage*>(def);
+    if (storage != nullptr) {
+        string id = storage->id_;
+        auto ty = getType(&ctxt, storage->type_);
+
+        addStorage(ty, id);
+        return true;
+    }
+
+    auto inp = dynamic_cast<DefInput*>(def);
+    if (inp != nullptr) {
+        string id = inp->id_;
+        auto ty = getType(&ctxt, inp->type_);
+        if (ty.isArray())
+            throw CodeError("Ports cannot be arrays", def->line_number);
+
+        addInputPort(ty, id);
+        return true;
+    }
+
+    auto outp = dynamic_cast<DefOutput*>(def);
+    if (outp != nullptr) {
+        string id = outp->id_;
+        auto ty = getType(&ctxt, outp->type_);
+        if (ty.isArray())
+            throw CodeError("Ports cannot be arrays", def->line_number);
+
+        addOutputPort(ty, id);
+        return true;
+    }
+
+    auto intp = dynamic_cast<DefInternal*>(def);
+    if (intp != nullptr) {
+        string id = intp->id_;
+        auto ty = getType(&ctxt, intp->type_);
+        if (ty.isArray())
+            throw CodeError("Ports cannot be arrays", def->line_number);
+
+        addInternalPort(ty, id);
+        return true;
+    }
+
+    return false;
+}
+
+bool SpatialCModule::handleModDef(Context& ctxt, ModDef* def) {
+    auto event = dynamic_cast<DefEvent*>(def);
+    if (event != nullptr) {
+        auto ev = Event::create(&ctxt, event, this);
+        addEvent(ev);
+        return true;
+    }
+
+    auto connection = dynamic_cast<DefConnect*>(def);
+    if (connection != nullptr) {
+        addConnection(connection);
+        return true;
+    }
+
+    auto forDef = dynamic_cast<DefFor*>(def);
+    if (forDef != nullptr) {
+        Context forCtxt(&ctxt);
+        int64_t from = Expression::resolveToInt(ctxt, forDef->exp_1);
+        int64_t to   = Expression::resolveToInt(ctxt, forDef->exp_2);
+        auto intTy = llvm::Type::getInt64Ty(ctxt.llvmCtxt());
+        for (int i=from; i<to; i++) {
+            auto llvmConst = llvm::ConstantInt::get(intTy, i, true);
+            Variable v(Type(intTy),
+                       (new Constant(llvmConst))->dout(),
+                       forDef->id_,
+                       llvmConst);
+            ctxt.push(v);
+            for (auto def: *forDef->listmoddef_) {
+                handleModDef(forCtxt, def);
+            }
+        }
+        return true;
+    }
+
+    return false;
+}
+
 void SpatialCModuleTemplate::parseParams() {
     auto ctxt = _pkg->ctxt();
     SomeParams* modParams = dynamic_cast<SomeParams*>(_modAst->metaparamdecl_);
@@ -338,6 +426,10 @@ SpatialCModule* SpatialCModuleTemplate::instantiate() {
             if (f != _args.end()) {
                 auto v = f->second;
                 v.name = pname;
+                if (v.op == nullptr) {
+                    assert(v.constant != nullptr);
+                    v.op = (new Constant(v.constant))->dout();
+                }
                 ctxt.push(v);
             } else {
                 auto eqExp = dynamic_cast<EqExp*>(((MetaParam1*)param)->optionaleqexp_);
@@ -351,70 +443,23 @@ SpatialCModule* SpatialCModuleTemplate::instantiate() {
                     throw CodeError("Metaparameter/argument type mismatch",
                                     param->line_number);
                 }
-                ctxt.push(Variable(val.ty, val.val, pname));
+                auto c = llpm::EvalConstant(mod->conns(), val.val);
+                ctxt.push(Variable(val.ty, val.val, pname, c));
             }
         }
     }
 
+    set<ModDef*> done;
     for (ModDef* def: *_modAst->listmoddef_) {
-        auto storage = dynamic_cast<DefStorage*>(def);
-        if (storage != nullptr) {
-            string id = storage->id_;
-            auto ty = mod->getType(&ctxt, storage->type_);
+        if (mod->handleDeclDef(ctxt, def))
+            done.insert(def);
+    }
 
-            mod->addStorage(ty, id);
-            continue;
+    for (ModDef* def: *_modAst->listmoddef_) {
+        auto rc = mod->handleModDef(ctxt, def);
+        if (done.count(def) == 0 && rc == false) {
+            assert(false && "Couldn't deal with module def!");
         }
-
-        auto inp = dynamic_cast<DefInput*>(def);
-        if (inp != nullptr) {
-            string id = inp->id_;
-            auto ty = mod->getType(&ctxt, inp->type_);
-            if (ty.isArray())
-                throw CodeError("Ports cannot be arrays", def->line_number);
-
-            mod->addInputPort(ty, id);
-            continue;
-        }
-
-        auto outp = dynamic_cast<DefOutput*>(def);
-        if (outp != nullptr) {
-            string id = outp->id_;
-            auto ty = mod->getType(&ctxt, outp->type_);
-            if (ty.isArray())
-                throw CodeError("Ports cannot be arrays", def->line_number);
-
-            mod->addOutputPort(ty, id);
-            continue;
-        }
-
-        auto intp = dynamic_cast<DefInternal*>(def);
-        if (intp != nullptr) {
-            string id = intp->id_;
-            auto ty = mod->getType(&ctxt, intp->type_);
-            if (ty.isArray())
-                throw CodeError("Ports cannot be arrays", def->line_number);
-
-            mod->addInternalPort(ty, id);
-            continue;
-        }
-
-        auto event = dynamic_cast<DefEvent*>(def);
-        if (event != nullptr) {
-            auto ev = Event::create(&ctxt, event, mod);
-            mod->addEvent(ev);
-
-            continue;
-        }
-
-        auto connection = dynamic_cast<DefConnect*>(def);
-        if (connection != nullptr) {
-            mod->addConnection(connection);
-
-            continue;
-        }
-
-        assert(false && "Don't know how to deal with module-level def");
     }
 
     return mod;

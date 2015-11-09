@@ -22,6 +22,7 @@ DefOutput.  ModDef ::= "output" Type Id ";" ;
 DefInternal.ModDef ::= "internal" Type Id ";" ;
 DefEvent.   ModDef ::= "event" EventName "(" [EventParam] ")" Block ;
 DefConnect. ModDef ::= ChannelSpecifier "->" ChannelSpecifier ";" ;
+DefFor.     ModDef ::= "for" "(" Id ":" Exp ".." Exp ")" "{" [ModDef] "}" ;
 terminator ModDef "" ;
 
 SimpleCS.   ChannelSpecifier ::= Id;

@@ -8,6 +8,8 @@
 #include <libraries/core/std_library.hpp>
 #include <libraries/util/types.hpp>
 
+#include <analysis/constant.hpp>
+
 #include <llvm/IR/Constants.h>
 #include <cassert>
 
@@ -445,4 +447,17 @@ ValTy Expression::truncOrExtend(
         return val;
     return ValTy(newOp, ty);
 }
+
+int64_t Expression::resolveToInt(const Context& ctxt, Exp* exp) {
+    auto valty = evalExpression(ctxt, exp);
+    auto c = llpm::EvalConstant(ctxt.conns(), valty.val);
+    if (c == nullptr)
+        throw CodeError("Expression must be compile-time const!",
+                        exp->line_number);
+    if (!c->getType()->isIntegerTy())
+        throw CodeError("Expression must be compile-time const integer!",
+                        exp->line_number);
+    return c->getUniqueInteger().getLimitedValue();
+}
+
 } // namespace spatialc 

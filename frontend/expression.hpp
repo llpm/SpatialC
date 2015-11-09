@@ -38,6 +38,8 @@ struct Expression {
         const Context&, llpm::OutputPort* op, llvm::Type* ty);
     static ValTy truncOrExtend(
         const Context&, ValTy op, Type ty);
+
+    static int64_t resolveToInt(const Context&, Exp* exp);
 };
 
 } // namespace spatialc
