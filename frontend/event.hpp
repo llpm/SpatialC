@@ -11,8 +11,7 @@ class PushStmt;
 
 namespace spatialc {
 
-// Fwd defs.
-struct Context;
+class Context;
 
 class Event : public llpm::ContainerModule {
     friend struct Expression;
