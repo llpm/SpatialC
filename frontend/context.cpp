@@ -212,23 +212,27 @@ llpm::OutputPort* Context::buildTotalBinaryClause(llpm::ConnectionDB* conns) {
         // Use a cached copy if available
         return totalBinaryClause;
     }
+    OutputPort* parentbc = nullptr;
+    if (parent != nullptr)
+        parentbc = parent->buildTotalBinaryClause(conns);
 
-    if (parent == nullptr && clause == nullptr) {
-        //We are top level and unconditional. Build 'true' waiting for control sig
-        auto trueConst = new Constant(llvm::ConstantInt::getTrue(llvmCtxt()));
-        auto wait = new Wait(trueConst->dout()->type());
-        conns->connect(trueConst->dout(), wait->din());
-        wait->newControl(conns, controlSignal);
-        totalBinaryClause = wait->dout();
-        return totalBinaryClause;
+    if (parentbc == nullptr) {
+        if (clause != nullptr) {
+            return clause;
+        } else if (controlSignal == nullptr) {
+            return nullptr;
+        } else {
+            //We are top level and unconditional. Build 'true' waiting for control sig
+            auto trueConst = new Constant(llvm::ConstantInt::getTrue(llvmCtxt()));
+            auto wait = new Wait(trueConst->dout()->type());
+            conns->connect(trueConst->dout(), wait->din());
+            wait->newControl(conns, controlSignal);
+            totalBinaryClause = wait->dout();
+            return totalBinaryClause;
+        }
     }
 
-    if (parent == nullptr && clause != nullptr) {
-        return clause;
-    }
-
-    assert(parent != nullptr);
-    auto parentbc = parent->buildTotalBinaryClause(conns);
+    assert(parentbc != nullptr);
     if (clause == nullptr) {
         return parentbc;
     }
