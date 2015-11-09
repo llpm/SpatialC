@@ -20,11 +20,30 @@ using namespace llpm;
 
 namespace spatialc {
 
-Context::Context(Context& parent, llpm::OutputPort* clause, uint32_t idx) :
-    parent(&parent),
-    mod(parent.mod),
-    ev(parent.ev),
-    controlSignal(parent.controlSignal),
+Context::Context(Context* parent, Package* pkg) :
+    design(pkg->design()),
+    parent(parent),
+    _pkg(pkg),
+    _mod(nullptr),
+    _ev(nullptr),
+    controlSignal(nullptr),
+    clause(nullptr),
+    totalBinaryClause(nullptr),
+    readController(nullptr),
+    writeControl(nullptr),
+    xact(false),
+    atomic(false),
+    recordWriteAcks(false)
+{ }
+
+
+Context::Context(Context* parent, llpm::OutputPort* clause, uint32_t idx) :
+    design(parent->design),
+    parent(parent),
+    _pkg(nullptr),
+    _mod(nullptr),
+    _ev(nullptr),
+    controlSignal(parent->controlSignal),
     clause(clause),
     idx(idx),
     totalBinaryClause(nullptr),
@@ -36,10 +55,12 @@ Context::Context(Context& parent, llpm::OutputPort* clause, uint32_t idx) :
 { }
 
 
-Context::Context(Event* ev, llpm::OutputPort* cntrl) :
-    parent(nullptr),
-    mod(ev->mod()),
-    ev(ev),
+Context::Context(Context* parent, Event* ev, llpm::OutputPort* cntrl) :
+    design(parent->design),
+    parent(parent),
+    _pkg(nullptr),
+    _mod(nullptr),
+    _ev(ev),
     controlSignal(cntrl),
     clause(nullptr),
     totalBinaryClause(nullptr),
@@ -50,9 +71,22 @@ Context::Context(Event* ev, llpm::OutputPort* cntrl) :
     recordWriteAcks(false)
 { }
 
-llvm::LLVMContext& Context::llvmCtxt() const {
-    return mod->design().context();
-}
+Context::Context(Context* parent, SpatialCModule* mod) :
+    design(parent->design),
+    parent(parent),
+    _pkg(nullptr),
+    _mod(mod),
+    _ev(nullptr),
+    controlSignal(nullptr),
+    clause(nullptr),
+    totalBinaryClause(nullptr),
+    readController(nullptr),
+    writeControl(nullptr),
+    xact(false),
+    atomic(false),
+    recordWriteAcks(false)
+{ }
+
 
 llpm::OutputPort* Context::findWriteControl() const {
     if (writeControl != nullptr)
@@ -155,7 +189,7 @@ void Context::updateFromChildren(std::vector<Context*> children) {
                 def->type(),
                 idxs);
 
-        ConnectionDB* conns = ev->conns();
+        ConnectionDB* conns = ev()->conns();
         conns->connect(sm->getSelector(*conns), clause);
         conns->connect(sm->getDefault(*conns), def);
         for (auto child: children) {

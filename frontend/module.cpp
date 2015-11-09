@@ -298,12 +298,12 @@ llpm::Port* SpatialCModule::resolve(::ChannelSpecifier* cs, bool isOutput) {
     assert(false);
 }
 
-Type SpatialCModule::getType(string typeName) {
-    return Type::resolve(_package, typeName);
+Type SpatialCModule::getType(const Context* ctxt, string typeName) {
+    return Type::resolve(ctxt, typeName);
 }
 
-Type SpatialCModule::getType(::Type* astType) {
-    return Type::resolve(_package, astType);
+Type SpatialCModule::getType(const Context* ctxt, ::Type* astType) {
+    return Type::resolve(ctxt, astType);
 }
 
 } // namespace spatialc

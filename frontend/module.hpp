@@ -52,8 +52,8 @@ public:
     DEF_GET(nameTypes);
     DEF_GET(submodules);
 
-    Type getType(std::string typeName);
-    Type getType(::Type* astType);
+    Type getType(const Context*, std::string typeName);
+    Type getType(const Context*, ::Type* astType);
 
 private:
     llpm::InputPort*  addInputPort(Type, std::string name);

@@ -2,6 +2,7 @@
 
 #include <grammar/Absyn.H>
 #include <frontend/package_set.hpp>
+#include <frontend/context.hpp>
 #include <llpm/design.hpp>
 #include <frontend/exception.hpp>
 #include <libraries/core/comm_intr.hpp>
@@ -22,7 +23,7 @@ void Struct::build(::DefStruct* ast) {
     for (auto def: *ast->liststructdef_) {
         auto stor = dynamic_cast<::DefSubstor*>(def);
         if (stor != nullptr) {
-            Type ty = Type::resolve(_package, ((TyName*)stor->type_)->id_);
+            Type ty = Type::resolve(_package->ctxt(), ((TyName*)stor->type_)->id_);
             _subTypes.push_back(ty);
             _subNames[stor->id_] = _subTypes.size() - 1;
             continue;
@@ -69,14 +70,14 @@ llvm::Type* Type::llvm() const {
     return nullptr;
 }
 
-Type Type::resolve(Package* pkg, std::string typeName) {
+Type Type::resolve(const Context* ctxt, std::string typeName) {
 
     // Attempt to resolve simple types
     if (typeName == "void") {
-        return Type(llvm::Type::getVoidTy(pkg->design().context()));
+        return Type(llvm::Type::getVoidTy(ctxt->llvmCtxt()));
     } else if (typeName == "bool") {
         return Type(
-            llvm::Type::getIntNTy(pkg->design().context(), 1));
+            llvm::Type::getIntNTy(ctxt->llvmCtxt(), 1));
     }
 
     // Resolve integer types with a regex
@@ -89,18 +90,18 @@ Type Type::resolve(Package* pkg, std::string typeName) {
         }
 
         return Type(
-            llvm::Type::getIntNTy(pkg->design().context(), width));
+            llvm::Type::getIntNTy(ctxt->llvmCtxt(), width));
     }
 
     // Look up types defined in the package
     Type ty;
-    if (pkg->resolveNamedType(typeName, ty))
+    if (ctxt->pkg()->resolveNamedType(typeName, ty))
         return ty;
 
     throw SemanticError("Could not resolve type: " + typeName);
 }
 
-Type Type::resolve(Package* ctxt, ::Type* astType) {
+Type Type::resolve(const Context* ctxt, ::Type* astType) {
     auto tyName = dynamic_cast<TyName*>(astType);
     if (tyName != nullptr) {
         return resolve(ctxt, tyName->id_);

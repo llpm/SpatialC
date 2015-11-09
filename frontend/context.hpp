@@ -2,6 +2,7 @@
 #define __SPATIALC_FRONTEND_CONTEXT_HPP__
 
 #include <llpm/ports.hpp>
+#include <llpm/design.hpp>
 #include <frontend/type.hpp>
 #include <libraries/core/comm_intr.hpp>
 
@@ -11,6 +12,7 @@
 
 namespace spatialc {
 
+class Package;
 class SpatialCModule;
 class Event;
 
@@ -36,9 +38,11 @@ struct Variable {
 
 class Context {
 public:
+    llpm::Design& design;
     Context* parent;
-    SpatialCModule* mod;
-    Event* ev;
+    Package* _pkg;
+    SpatialCModule* _mod;
+    Event* _ev;
     llpm::OutputPort* controlSignal;
     llpm::OutputPort* clause;
     uint32_t    idx;
@@ -51,8 +55,38 @@ public:
     bool recordWriteAcks;
     std::set<llpm::OutputPort*> writeAcks;
 
-    Context(Context& parent, llpm::OutputPort* clause = nullptr, uint32_t idx = 0);
-    Context(Event* ev, llpm::OutputPort* cntrl);
+    Context(Context* parent, Package* pkg);
+    Context(Context* parent, llpm::OutputPort* clause = nullptr, uint32_t idx = 0);
+    Context(Context* parent, Event* ev, llpm::OutputPort* cntrl);
+    Context(Context* parent, SpatialCModule* mod);
+
+    llvm::LLVMContext& llvmCtxt() const {
+        return design.context();
+    }
+
+    Package* pkg() const {
+        if (this->_pkg != nullptr)
+            return this->_pkg;
+        if (this->parent != nullptr)
+            return this->parent->pkg();
+        return nullptr;
+    }
+
+    SpatialCModule* mod() const {
+        if (this->_mod != nullptr)
+            return this->_mod;
+        if (this->parent != nullptr)
+            return this->parent->mod();
+        return nullptr;
+    }
+
+    Event* ev() const {
+        if (this->_ev != nullptr)
+            return this->_ev;
+        if (this->parent != nullptr)
+            return this->parent->ev();
+        return nullptr;
+    }
 
     bool inXact() const {
         if (xact)
@@ -69,8 +103,6 @@ public:
             return parent->inXact();
         return false;
     }
-
-    llvm::LLVMContext& llvmCtxt() const;
 
     llpm::OutputPort* findWriteControl() const;
 

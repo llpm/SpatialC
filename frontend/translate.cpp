@@ -9,12 +9,13 @@ namespace spatialc {
 
 llpm::Module* Translator::translate(Package* pkg, DefModule* modAst) {
     SpatialCModule* mod = new SpatialCModule(pkg, modAst->id_);
+    Context ctxt(pkg->ctxt(), mod);
 
     for (ModDef* def: *modAst->listmoddef_) {
         auto storage = dynamic_cast<DefStorage*>(def);
         if (storage != nullptr) {
             string id = storage->id_;
-            auto ty = mod->getType(storage->type_);
+            auto ty = mod->getType(&ctxt, storage->type_);
 
             mod->addStorage(ty, id);
             continue;
@@ -23,7 +24,7 @@ llpm::Module* Translator::translate(Package* pkg, DefModule* modAst) {
         auto inp = dynamic_cast<DefInput*>(def);
         if (inp != nullptr) {
             string id = inp->id_;
-            auto ty = mod->getType(inp->type_);
+            auto ty = mod->getType(&ctxt, inp->type_);
             if (ty.isArray())
                 throw CodeError("Ports cannot be arrays", def->line_number);
 
@@ -34,7 +35,7 @@ llpm::Module* Translator::translate(Package* pkg, DefModule* modAst) {
         auto outp = dynamic_cast<DefOutput*>(def);
         if (outp != nullptr) {
             string id = outp->id_;
-            auto ty = mod->getType(outp->type_);
+            auto ty = mod->getType(&ctxt, outp->type_);
             if (ty.isArray())
                 throw CodeError("Ports cannot be arrays", def->line_number);
 
@@ -45,7 +46,7 @@ llpm::Module* Translator::translate(Package* pkg, DefModule* modAst) {
         auto intp = dynamic_cast<DefInternal*>(def);
         if (intp != nullptr) {
             string id = intp->id_;
-            auto ty = mod->getType(intp->type_);
+            auto ty = mod->getType(&ctxt, intp->type_);
             if (ty.isArray())
                 throw CodeError("Ports cannot be arrays", def->line_number);
 
@@ -55,7 +56,7 @@ llpm::Module* Translator::translate(Package* pkg, DefModule* modAst) {
 
         auto event = dynamic_cast<DefEvent*>(def);
         if (event != nullptr) {
-            auto ev = Event::create(_design, event, mod);
+            auto ev = Event::create(&ctxt, event, mod);
             mod->addEvent(ev);
 
             continue;

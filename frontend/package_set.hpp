@@ -8,6 +8,7 @@
 #include <grammar/Absyn.H>
 #include <util/search_path.hpp>
 #include <frontend/type.hpp>
+#include <frontend/context.hpp>
 
 // LLPM fwd. defs
 namespace llpm {
@@ -72,6 +73,7 @@ class Package {
     std::map<std::string, std::set<llpm::Module*>> _modules;
 
     std::set<Package*>             _imports;
+    Context _ctxt;
 
     void lazyBuild(::Package* pkg);
     void translateStruct(::DefStruct* ast);
@@ -79,13 +81,15 @@ class Package {
 public:
     Package(std::string name, PackageSet* ps) :
         _name(name),
-        _set(ps)
+        _set(ps),
+        _ctxt(nullptr, this)
     { }
 
     virtual ~Package() { }
 
     DEF_GET_NP(set);
     DEF_GET_NP(name);
+    DEF_GET(ctxt);
     llpm::Design& design();
 
     bool findTypeLocal(std::string typeName, Type& ty);

@@ -10,6 +10,7 @@
 // AST fwd defs
 class DefStruct;
 class Type;
+class IntOrName;
 
 // LLPM fwd defs
 namespace llpm {
@@ -24,6 +25,8 @@ class Package;
 class Struct;
 class Array;
 class Vector;
+
+class Context;
 
 class Type {
     llvm::Type*   _simple;
@@ -87,8 +90,9 @@ public:
     /**
      * Resolve a type given a package context
      */
-    static Type resolve(Package* ctxt, std::string ident);
-    static Type resolve(Package* ctxt, ::Type* astType);
+    static int64_t resolve(const Context* ctxt, ::IntOrName*); 
+    static Type resolve(const Context* ctxt, std::string ident);
+    static Type resolve(const Context* ctxt, ::Type* astType);
 
     llvm::Type* llvm() const;
 

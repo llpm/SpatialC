@@ -45,7 +45,7 @@ class Event : public llpm::ContainerModule {
     ValTy evalExpression(const Context&, Exp*);
 
 public:
-    static Event* create(llpm::Design&,
+    static Event* create(Context* ctxt,
                          DefEvent* eventAst,
                          SpatialCModule* module);
 

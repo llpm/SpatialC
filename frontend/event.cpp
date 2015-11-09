@@ -179,7 +179,7 @@ void Event::scanForOutputs(::Block* blockD) {
     }
 }
 
-Event* Event::create(llpm::Design& design,
+Event* Event::create(Context* parentCtxt,
                      DefEvent* eventAst,
                      SpatialCModule* mod) {
     // Get event name
@@ -189,10 +189,10 @@ Event* Event::create(llpm::Design& design,
         evName = evNameObj->id_;
     }
 
-    Event* ev = new Event(design, evName, mod);
+    Event* ev = new Event(parentCtxt->design, evName, mod);
 
     // Convert the event list to something usable
-    Context ctxt(ev, nullptr);
+    Context ctxt(parentCtxt, ev, nullptr);
     ev->buildInitial(ctxt, eventAst->listeventparam_);
     for (auto v: ctxt.vars) {
         auto ns = new NullSink(v.op->type());
@@ -228,7 +228,7 @@ void Event::processStmt(Context& ctxt, VarStmt* stmt) {
         throw CodeError("Cannot redefine " + stmt->id_,
                         stmt->line_number);
     }
-    Type ty = _mod->getType(stmt->type_);
+    Type ty = _mod->getType(&ctxt, stmt->type_);
     OutputPort* op;
 
     auto assignment = dynamic_cast<VarAssign*>(stmt->varassignment_);
@@ -276,16 +276,16 @@ void Event::processStmt(Context& ctxt, AssignArrStmt* stmt) {
     }
 
     auto replacement = new ReplaceElement(old->op->type());
-    auto idxPort = replacement->din()->join(*ctxt.ev->conns())->din(2);
-    auto valPort = replacement->din()->join(*ctxt.ev->conns())->din(1);
-    auto origValPort = replacement->din()->join(*ctxt.ev->conns())->din(0);
+    auto idxPort = replacement->din()->join(*ctxt.ev()->conns())->din(2);
+    auto valPort = replacement->din()->join(*ctxt.ev()->conns())->din(1);
+    auto origValPort = replacement->din()->join(*ctxt.ev()->conns())->din(0);
 
     idx = truncOrExtend(idx.val, idxPort->type());
     val = truncOrExtend(val.val, valPort->type());
 
-    ctxt.ev->conns()->connect(idx.val, idxPort);
-    ctxt.ev->conns()->connect(val.val, valPort);
-    ctxt.ev->conns()->connect(old->op, origValPort);
+    ctxt.ev()->conns()->connect(idx.val, idxPort);
+    ctxt.ev()->conns()->connect(val.val, valPort);
+    ctxt.ev()->conns()->connect(old->op, origValPort);
 
     Variable newVar = *old;
     newVar.op = replacement->dout();
@@ -298,12 +298,12 @@ void Event::processStmt(Context& ctxt, IfStmt* stmt) {
     assert(clause != nullptr);
 
     // Process if block
-    Context ifCtxt(ctxt, clause, 1);
+    Context ifCtxt(&ctxt, clause, 1);
     for (auto bstmt: *((Block1*)stmt->block_)->liststatement_) {
         processStatement(ifCtxt, bstmt);
     }
 
-    Context elseCtxt (ctxt, clause, 0);
+    Context elseCtxt (&ctxt, clause, 0);
     Else* elseBlock = dynamic_cast<Else*>(stmt->elseblock_);
     if (elseBlock) {
         for (auto bstmt: *((Block1*)elseBlock->block_)->liststatement_) {
@@ -315,7 +315,7 @@ void Event::processStmt(Context& ctxt, IfStmt* stmt) {
 }
 
 void Event::processStmt(Context& ctxt, BlockStmt* stmt) {
-    Context blockCtxt(ctxt);
+    Context blockCtxt(&ctxt);
     processBlock(blockCtxt, stmt->block_);
 }
 
@@ -469,8 +469,8 @@ void Event::processStmt(Context& ctxt, PushStmt* stmt) {
         return;
     }
 
-    auto memF = ctxt.mod->namedStorage()->find(outName);
-    if (memF != ctxt.mod->namedStorage()->end()) {
+    auto memF = ctxt.mod()->namedStorage()->find(outName);
+    if (memF != ctxt.mod()->namedStorage()->end()) {
         auto mem = memF->second;
         llvm::Type* memType = mem->write()->din()->type();
 
@@ -500,11 +500,11 @@ void Event::processStmt(Context& ctxt, PushStmt* stmt) {
                             stmt->line_number);
         }
 
-        auto ev = ctxt.ev;
+        auto ev = ctxt.ev();
         auto inId = new Identity(mem->write()->respType());
         std::pair<OutputPort*, InputPort*> iface
-            (ctxt.ev->addOutputPort(val),
-             ctxt.ev->addInputPort(inId->din()));
+            (ctxt.ev()->addOutputPort(val),
+             ctxt.ev()->addInputPort(inId->din()));
 
         ev->_memWriteConnections[outName].push_back(iface);
         auto sink = new NullSink(iface.second->type());
@@ -558,8 +558,8 @@ struct Expression {
             return ValTy(v->op, v->ty);
         }
 
-        auto tyF = ctxt.mod->nameTypes()->find(id);
-        if (tyF == ctxt.mod->nameTypes()->end()) {
+        auto tyF = ctxt.mod()->nameTypes()->find(id);
+        if (tyF == ctxt.mod()->nameTypes()->end()) {
             throw CodeError("Cannot resolve identifier '" + id + "'");
         }
         auto ty = tyF->second;
@@ -569,8 +569,8 @@ struct Expression {
             return ValTy(nullptr, ty);
         }
 
-        auto nsF = ctxt.mod->namedStorage()->find(id);
-        if (nsF != ctxt.mod->namedStorage()->end()) {
+        auto nsF = ctxt.mod()->namedStorage()->find(id);
+        if (nsF != ctxt.mod()->namedStorage()->end()) {
             auto mem = nsF->second;
             if (!mem->read()->din()->type()->isVoidTy()) {
                 throw CodeError("Cannot access complex memory '"
@@ -578,15 +578,15 @@ struct Expression {
                                 " type needs some sort of accessor.");
             }
 
-            auto ev = ctxt.ev;
+            auto ev = ctxt.ev();
             auto inId = new Identity(mem->read()->respType());
             std::pair<OutputPort*, InputPort*> iface
-                (ctxt.ev->addOutputPort(ctxt.controlSignal),
-                 ctxt.ev->addInputPort(inId->din()));
+                (ctxt.ev()->addOutputPort(ctxt.controlSignal),
+                 ctxt.ev()->addInputPort(inId->din()));
 
             ev->_memReadConnections[id].push_back(iface);
             if (ctxt.readController != nullptr)
-                ctxt.readController->newControl(ctxt.ev->conns(), inId->dout());
+                ctxt.readController->newControl(ctxt.ev()->conns(), inId->dout());
             return ValTy(inId->dout(), tyF->second);
         }
 
@@ -613,46 +613,46 @@ struct Expression {
                                 " must appear directly before []", exp->line_number);
             id = eid->id_;
 
-            auto nsF = ctxt.mod->namedStorage()->find(id);
-            if (nsF == ctxt.mod->namedStorage()->end()) {
+            auto nsF = ctxt.mod()->namedStorage()->find(id);
+            if (nsF == ctxt.mod()->namedStorage()->end()) {
                 throw CodeError("Could not locate storage", exp->line_number);
             }
             auto mem = nsF->second;
-            auto memTypeF = ctxt.mod->nameTypes()->find(id);
-            assert(memTypeF != ctxt.mod->nameTypes()->end());
+            auto memTypeF = ctxt.mod()->nameTypes()->find(id);
+            assert(memTypeF != ctxt.mod()->nameTypes()->end());
             auto memType = memTypeF->second;
 
-            idx = ctxt.ev->truncOrExtend(idx, mem->read()->req()->type());
+            idx = ctxt.ev()->truncOrExtend(idx, mem->read()->req()->type());
 
-            auto tyF = ctxt.mod->nameTypes()->find(id);
-            assert(tyF != ctxt.mod->nameTypes()->end() &&
+            auto tyF = ctxt.mod()->nameTypes()->find(id);
+            assert(tyF != ctxt.mod()->nameTypes()->end() &&
                         "Cannot find type!");
 
             auto readWait = new Wait(idx->type());
-            ctxt.ev->connect(idx, readWait->din());
-            readWait->newControl(ctxt.ev->conns(), ctxt.controlSignal);
+            ctxt.ev()->connect(idx, readWait->din());
+            readWait->newControl(ctxt.ev()->conns(), ctxt.controlSignal);
             idx = readWait->dout();
 
-            auto ev = ctxt.ev;
+            auto ev = ctxt.ev();
             auto inId = new Identity(mem->read()->respType());
             std::pair<OutputPort*, InputPort*> iface
-                (ctxt.ev->addOutputPort(idx),
-                 ctxt.ev->addInputPort(inId->din()));
+                (ctxt.ev()->addOutputPort(idx),
+                 ctxt.ev()->addInputPort(inId->din()));
 
             ev->_memReadConnections[id].push_back(iface);
             if (ctxt.readController != nullptr)
-                ctxt.readController->newControl(ctxt.ev->conns(), inId->dout());
+                ctxt.readController->newControl(ctxt.ev()->conns(), inId->dout());
             return ValTy(inId->dout(), tyF->second.asArray()->contained());
         } else if (val.ty.isVector()) {
 
-            auto split = val.val->split(*ctxt.ev->conns());
+            auto split = val.val->split(*ctxt.ev()->conns());
             auto mux = new Multiplexer(val.ty.asVector()->length(), 
                                        val.ty.asVector()->contained().llvm());
-            auto muxIn = mux->din()->join(*ctxt.ev->conns());
-            idx = ctxt.ev->truncOrExtend(idx, muxIn->din(0)->type());
-            ctxt.ev->conns()->connect(idx, muxIn->din(0));
+            auto muxIn = mux->din()->join(*ctxt.ev()->conns());
+            idx = ctxt.ev()->truncOrExtend(idx, muxIn->din(0)->type());
+            ctxt.ev()->conns()->connect(idx, muxIn->din(0));
             for (unsigned i=0; i<val.ty.asVector()->length(); i++) {
-                ctxt.ev->conns()->connect(split->dout(i), muxIn->din(i+1));
+                ctxt.ev()->conns()->connect(split->dout(i), muxIn->din(i+1));
             }
             return ValTy(mux->dout(), val.ty.asVector()->contained());
         } else {
@@ -662,7 +662,7 @@ struct Expression {
     }
 
     static ValTy eval(const Context& ctxt, EStructLiteral* exp) {
-        auto ty = ctxt.mod->getType(exp->id_);
+        auto ty = ctxt.mod()->getType(&ctxt, exp->id_);
         if (!ty.isStruct()) {
             throw CodeError("Type specified for struct constructor is not a struct!",
                             exp->line_number);
@@ -679,7 +679,7 @@ struct Expression {
             }
             auto fieldNum = fieldNumF->second;
             auto exp = evalExpression(ctxt, ((StructLiteralField1*)sl)->exp_);
-            exp = ctxt.ev->truncOrExtend(exp, strTy->subTypes(fieldNum));
+            exp = ctxt.ev()->truncOrExtend(exp, strTy->subTypes(fieldNum));
             assert(fieldNum < fields.size());
             fields[fieldNum] = exp.val;
             if (strTy->subTypes(fieldNum) != exp.ty) {
@@ -697,7 +697,7 @@ struct Expression {
 
         auto j = new Join(ty.llvm());
         for (unsigned i=0; i<fields.size(); i++) {
-            ctxt.ev->conns()->connect(fields[i], j->din(i));
+            ctxt.ev()->conns()->connect(fields[i], j->din(i));
         }
         return ValTy(j->dout(), ty);
     }
@@ -717,8 +717,8 @@ struct Expression {
         auto join = new Join(vecTy->llvm());
         assert(join->dout()->type() == vecTy->llvm());
         for (unsigned i=0; i<vals.size(); i++) {
-            vals[i] = ctxt.ev->truncOrExtend(vals[i], largest.llvm());
-            ctxt.ev->connect(vals[i].val, join->din(i));
+            vals[i] = ctxt.ev()->truncOrExtend(vals[i], largest.llvm());
+            ctxt.ev()->connect(vals[i].val, join->din(i));
         }
         return ValTy(join->dout(), Type(vecTy));
     }
@@ -729,7 +729,7 @@ struct Expression {
             throw CodeError("Can only use dot (.) accessor on structs", exp->line_number);
         }
 
-        return val.ty.asStruct()->accessor(ctxt.ev->conns(), val.val, exp->id_);
+        return val.ty.asStruct()->accessor(ctxt.ev()->conns(), val.val, exp->id_);
     }
 
     template<typename IntOp>
@@ -776,8 +776,8 @@ struct Expression {
         ValTy aout;
         Create c;
         c(exp, a, b, ain, aout); 
-        ctxt.ev->connect(a.val, ain->join(*ctxt.ev->conns(), 0));
-        ctxt.ev->connect(b.val, ain->join(*ctxt.ev->conns(), 1));
+        ctxt.ev()->connect(a.val, ain->join(*ctxt.ev()->conns(), 0));
+        ctxt.ev()->connect(b.val, ain->join(*ctxt.ev()->conns(), 1));
         return aout;
     }
 
