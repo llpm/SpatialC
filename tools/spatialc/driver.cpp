@@ -1,6 +1,5 @@
 #include <cstdio>
 
-#include <frontend/translate.hpp>
 #include <frontend/package_set.hpp>
 
 #include <llpm/design.hpp>

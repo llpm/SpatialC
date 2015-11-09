@@ -3,6 +3,7 @@
 
 #include <llpm/module.hpp>
 #include <frontend/type.hpp>
+#include <frontend/package_set.hpp>
 #include <libraries/core/mem_intr.hpp>
 
 namespace llpm {
@@ -19,11 +20,10 @@ namespace spatialc {
 
 // Fwd defs
 class Event;
-class Translator;
 class Package;
 
 class SpatialCModule : public llpm::ContainerModule {
-    friend class Translator;
+    friend class SpatialCModuleTemplate;
     friend class Event;
 
     Package* _package;
@@ -63,6 +63,36 @@ private:
     void addEvent(Event*);
     void addConnection(::DefConnect*);
     llpm::Port* resolve(::ChannelSpecifier*, bool isOutput);
+};
+
+class SpatialCModuleTemplate {
+    Package* _pkg;
+    DefModule* _modAst;
+    std::map<std::string, Type> _params;
+    std::map<std::string, Variable> _args;
+
+    void parseParams();
+
+public:
+    SpatialCModuleTemplate(Package* pkg, DefModule* modAst) :
+        _pkg(pkg),
+        _modAst(modAst)
+    {
+        parseParams();
+    }
+
+    SpatialCModuleTemplate(SpatialCModuleTemplate* parent,
+                           std::map<std::string, Variable> metaParams) :
+        _pkg(parent->_pkg),
+        _modAst(parent->_modAst),
+        _params(parent->_params),
+        _args(metaParams)
+    { }
+
+    DEF_GET_NP(params);
+
+    SpatialCModuleTemplate* args(std::map<std::string, Variable> templArgs);
+    SpatialCModule* instantiate();
 };
 
 }

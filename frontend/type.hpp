@@ -25,6 +25,7 @@ class Package;
 class Struct;
 class Array;
 class Vector;
+class SpatialCModuleTemplate;
 
 class Context;
 
@@ -33,7 +34,7 @@ class Type {
     Struct*       _struct;
     Array*        _array;
     Vector*       _vector;
-    llpm::Module* _module;
+    SpatialCModuleTemplate* _module;
 
 public:
     Type(llvm::Type* simple) :
@@ -68,7 +69,7 @@ public:
         _module(nullptr)
     { }
 
-    Type(llpm::Module* mod) :
+    Type(SpatialCModuleTemplate* mod) :
         _simple(nullptr),
         _struct(nullptr),
         _array(nullptr),
@@ -138,7 +139,7 @@ public:
         return _vector;
     }
 
-    llpm::Module* asModule() {
+    SpatialCModuleTemplate* asModule() {
         return _module;
     }
 

@@ -3,10 +3,15 @@
 #include <grammar/Absyn.H>
 #include <frontend/package_set.hpp>
 #include <frontend/context.hpp>
+#include <frontend/module.hpp>
+#include <frontend/event.hpp>
+#include <frontend/expression.hpp>
 #include <llpm/design.hpp>
+#include <analysis/constant.hpp>
 #include <frontend/exception.hpp>
 #include <libraries/core/comm_intr.hpp>
 #include <regex>
+#include <analysis/constant.hpp>
 
 using namespace std;
 using namespace llpm;
@@ -70,6 +75,44 @@ llvm::Type* Type::llvm() const {
     return nullptr;
 }
 
+int64_t Type::resolve(const Context* ctxt, ::IntOrName* ion) {
+    auto intVal = dynamic_cast<::Int*>(ion);
+    if (intVal != nullptr) {
+        return intVal->integer_;
+    }
+
+    auto nameVal = dynamic_cast<::ConstName*>(ion);
+    if (nameVal != nullptr) {
+        auto var = ctxt->find(nameVal->id_);
+        if (var == nullptr)
+            throw CodeError("Could not resolve '" +
+                            nameVal->id_ + "'", ion->line_number);
+        ConnectionDB* conns = nullptr;
+        if (ctxt->ev() != nullptr)
+            conns = ctxt->ev()->conns();
+        if (ctxt->mod() != nullptr)
+            conns = ctxt->mod()->conns();
+
+        auto c = var->constant;
+        if (c == nullptr)
+            c = llpm::EvalConstant(conns, var->op);
+
+        if (c == nullptr) {
+            throw CodeError("Could not resolve to compile-time value",
+                            ion->line_number);
+        }
+
+        if (!c->getType()->isIntegerTy()) {
+            throw CodeError("Must resolve to compile-time integer!",
+                            ion->line_number);
+        }
+
+        return c->getUniqueInteger().getLimitedValue();
+    }
+
+    assert(false && "Don't yet know how to decode const value");
+}
+
 Type Type::resolve(const Context* ctxt, std::string typeName) {
 
     // Attempt to resolve simple types
@@ -107,11 +150,43 @@ Type Type::resolve(const Context* ctxt, ::Type* astType) {
         return resolve(ctxt, tyName->id_);
     }
 
+    auto tyNameParam = dynamic_cast<TyNameParams*>(astType);
+    if (tyNameParam != nullptr) {
+        Type ty;
+        if (!ctxt->pkg()->resolveNamedType(tyNameParam->id_, ty)) {
+            throw CodeError("Could not resolve type name " +
+                            tyNameParam->id_, tyNameParam->line_number);
+        }
+
+        if (ty.isModule()) {
+            map<string, Variable> args;
+            for (auto argA: *tyNameParam->listtemplatearg_) {
+                auto arg = dynamic_cast<TemplateArg1*>(argA);
+                assert(arg != nullptr);
+                auto exp = Expression::evalExpression(*ctxt, arg->exp_);
+                auto c = llpm::EvalConstant(ctxt->conns(), exp.val);
+                if (c == nullptr) {
+                    throw CodeError("Could not resolve argument to constant",
+                                    arg->line_number);
+                }
+                Variable v(Type(c->getType()),
+                           nullptr,
+                           arg->id_,
+                           c);
+                args.insert(make_pair(arg->id_, v));
+            }
+            return Type(ty.asModule()->args(args));
+        }
+
+        throw CodeError("I don't know how to apply type parameters to this type!",
+                        tyNameParam->line_number);
+    }
+
     auto tyArray = dynamic_cast<TyArray*>(astType);
     if (tyArray != nullptr) {
         auto arr = new Array(
             resolve(ctxt, tyArray->type_),
-            tyArray->integer_);
+            resolve(ctxt, tyArray->intorname_));
         return Type(arr);
     }
 
@@ -119,7 +194,7 @@ Type Type::resolve(const Context* ctxt, ::Type* astType) {
     if (tyVector != nullptr) {
         auto vec = new Vector(
             resolve(ctxt, tyVector->type_),
-            tyVector->integer_);
+            resolve(ctxt, tyVector->intorname_));
         return Type(vec);
     }
 

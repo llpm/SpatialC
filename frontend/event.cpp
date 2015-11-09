@@ -252,7 +252,7 @@ void Event::processStmt(Context& ctxt, AssignStmt* stmt) {
     }
     Variable nvar = *old;
     nvar.op = evalExpression(ctxt, stmt->exp_).val;
-    nvar.op = truncOrExtend(nvar.op, old->op->type());
+    nvar.op = Expression::truncOrExtend(ctxt, nvar.op, old->op->type());
     ctxt.push(nvar);
 }
 
@@ -281,8 +281,8 @@ void Event::processStmt(Context& ctxt, AssignArrStmt* stmt) {
     auto valPort = replacement->din()->join(*ctxt.ev()->conns())->din(1);
     auto origValPort = replacement->din()->join(*ctxt.ev()->conns())->din(0);
 
-    idx = truncOrExtend(idx.val, idxPort->type());
-    val = truncOrExtend(val.val, valPort->type());
+    idx = Expression::truncOrExtend(ctxt, idx.val, idxPort->type());
+    val = Expression::truncOrExtend(ctxt, val.val, valPort->type());
 
     ctxt.ev()->conns()->connect(idx.val, idxPort);
     ctxt.ev()->conns()->connect(val.val, valPort);
@@ -414,34 +414,6 @@ void Event::processBlock(Context& ctxt, ::Block* blockSorta) {
     }
 }
 
-/**
- * Automatically truncate or extend ints to make ports match. This is done in
- * pushes and assignments automatically and without warning.
- */
-OutputPort* Event::truncOrExtend(OutputPort* op, llvm::Type* ty) {
-    if (ty->isIntegerTy() && op->type()->isIntegerTy() &&
-            ty->getIntegerBitWidth() != op->type()->getIntegerBitWidth()) {
-        int diff = ty->getIntegerBitWidth() - op->type()->getIntegerBitWidth();
-        Function* func = nullptr;
-        if (diff > 0) {
-            func = new IntExtend((unsigned)diff, false, op->type());
-        } else {
-            func = new IntTruncate((unsigned)(diff * -1), op->type());
-        }
-        conns()->connect(op, func->din());
-        return func->dout();
-    } else {
-        return op;
-    }
-}
-
-ValTy Event::truncOrExtend(ValTy val, Type ty) {
-    auto newOp = truncOrExtend(val.val, ty.llvm());
-    if (newOp == val.val)
-        return val;
-    return ValTy(newOp, ty);
-}
-
 void Event::processStmt(Context& ctxt, PushStmt* stmt) {
     auto outName = stmt->id_;
     auto val = evalExpression(ctxt, stmt->exp_).val;
@@ -464,7 +436,7 @@ void Event::processStmt(Context& ctxt, PushStmt* stmt) {
     auto outpF = _outpConnections.find(stmt);
     if (outpF != _outpConnections.end()) {
         auto outp = _outpConnections[stmt];
-        val = truncOrExtend(val, outp->type());
+        val = Expression::truncOrExtend(ctxt, val, outp->type());
 
         connect(val, outp);
         return;
@@ -484,11 +456,11 @@ void Event::processStmt(Context& ctxt, PushStmt* stmt) {
             }
             assert(memType->isStructTy() && "Wrong memory type constructed!");
             auto idxType = memType->getStructElementType(1);
-            arrIdx = truncOrExtend(arrIdx, idxType);
+            arrIdx = Expression::truncOrExtend(ctxt, arrIdx, idxType);
             memType = memType->getStructElementType(0);
         }
 
-        val = truncOrExtend(val, memType);
+        val = Expression::truncOrExtend(ctxt, val, memType);
         if (arrIdx != nullptr) {
             auto j = new Join({val->type(), arrIdx->type()});
             connect(arrIdx, j->din(1));

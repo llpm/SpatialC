@@ -20,11 +20,16 @@ struct Variable {
     Type ty;
     llpm::OutputPort* op;
     std::string name;
+    llvm::Constant* constant;
 
-    Variable(Type ty, llpm::OutputPort* op, std::string name) :
+    Variable(Type ty,
+             llpm::OutputPort* op,
+             std::string name,
+             llvm::Constant* constant = nullptr) :
         ty(ty),
         op(op),
-        name(name)
+        name(name),
+        constant(constant)
     { }
 
     bool operator<(const Variable& v) const {
@@ -104,6 +109,7 @@ public:
         return false;
     }
 
+    llpm::ConnectionDB* conns() const;
     llpm::OutputPort* findWriteControl() const;
 
     void pushWriteDone(llpm::OutputPort* op);

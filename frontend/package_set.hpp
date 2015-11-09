@@ -19,16 +19,14 @@ namespace llpm {
 namespace spatialc {
 
 class Package;
-class Module;
-class Translator;
+class SpatialCModule;
+class SpatialCModuleTemplate;
 
 class PackageSet {
-    Translator* _trans;
+    llpm::Design& _design;
     SearchPath  _paths;
 
     std::map<std::string, ::Package*> _packageASTs;
-
-
     std::map<std::string, Package*> _packages;
 
     void addPackageAST(std::string pkgName, ::Package* pkg);
@@ -40,7 +38,7 @@ public:
     ~PackageSet() {
     }
 
-    DEF_GET_NP(trans);
+    DEF_GET_NP(design);
 
     void appendIncludeDir(std::string inclDir) {
         _paths.appendPath(inclDir);
@@ -70,7 +68,8 @@ class Package {
     std::map<std::string, ::DefStruct*> _structASTs;
 
     std::map<std::string, Struct*> _structs;
-    std::map<std::string, std::set<llpm::Module*>> _modules;
+    std::map<std::string, SpatialCModuleTemplate*> _moduleTemplates;
+    std::map<std::string, std::set<SpatialCModule*>> _modules;
 
     std::set<Package*>             _imports;
     Context _ctxt;
@@ -96,7 +95,9 @@ public:
     bool resolveNamedType(std::string typeName, Type& ty);
 
     ::DefModule*  getModuleAST(std::string moduleName);
-    llpm::Module* instantiateModule(std::string moduleName);
+    SpatialCModuleTemplate* getModule(std::string moduleName);
+    llpm::Module* instantiateModule(std::string moduleName,
+                                    std::map<std::string, Variable> args = {});
 };
 
 }

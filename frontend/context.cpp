@@ -87,6 +87,15 @@ Context::Context(Context* parent, SpatialCModule* mod) :
     recordWriteAcks(false)
 { }
 
+llpm::ConnectionDB* Context::conns() const {
+    auto e = ev();
+    if (e != nullptr)
+        return e->conns();
+    auto m = mod();
+    if (m != nullptr)
+        return m->conns();
+    return nullptr;
+}
 
 llpm::OutputPort* Context::findWriteControl() const {
     if (writeControl != nullptr)

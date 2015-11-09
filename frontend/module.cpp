@@ -2,6 +2,7 @@
 
 #include <frontend/exception.hpp>
 #include <frontend/event.hpp>
+#include <frontend/expression.hpp>
 #include <libraries/core/logic_intr.hpp>
 #include <libraries/core/comm_intr.hpp>
 
@@ -10,7 +11,7 @@ using namespace std;
 namespace spatialc {
 
 SpatialCModule::SpatialCModule(Package* pkg, std::string name) : 
-    ContainerModule(pkg->set()->trans()->design(), name),
+    ContainerModule(pkg->set()->design(), name),
     _package(pkg)
 { }
 
@@ -75,7 +76,7 @@ void SpatialCModule::addStorage(Type ty, std::string name) {
         if (_submodules.find(name) != _submodules.end()) {
             throw CodeError("Submodule name already in use!");
         }
-        auto mod = ty.asModule();
+        auto mod = ty.asModule()->instantiate();
         _submodules[name] = mod;
 
         // For each submodule port, automatically add and connect an internal
@@ -304,6 +305,119 @@ Type SpatialCModule::getType(const Context* ctxt, string typeName) {
 
 Type SpatialCModule::getType(const Context* ctxt, ::Type* astType) {
     return Type::resolve(ctxt, astType);
+}
+
+void SpatialCModuleTemplate::parseParams() {
+    auto ctxt = _pkg->ctxt();
+    SomeParams* modParams = dynamic_cast<SomeParams*>(_modAst->metaparamdecl_);
+    if (modParams != nullptr) {
+        for (auto param: *modParams->listmetaparam_) {
+            auto pname = ((MetaParam1*)param)->id_;
+            auto ty = Type::resolve(ctxt, ((MetaParam1*)param)->type_);
+            _params[pname] = ty;
+        }
+    }
+}
+
+SpatialCModuleTemplate* SpatialCModuleTemplate::args(
+        std::map<std::string, Variable> templArgs) {
+    if (templArgs.size() == 0)
+        return this;
+    return new SpatialCModuleTemplate(this, templArgs);
+}
+
+SpatialCModule* SpatialCModuleTemplate::instantiate() {
+    SpatialCModule* mod = new SpatialCModule(_pkg, _modAst->id_);
+    Context ctxt(_pkg->ctxt(), mod);
+
+    SomeParams* modParams = dynamic_cast<SomeParams*>(_modAst->metaparamdecl_);
+    if (modParams != nullptr) {
+        for (auto param: *modParams->listmetaparam_) {
+            auto pname = ((MetaParam1*)param)->id_;
+            auto f = _args.find(pname);
+            if (f != _args.end()) {
+                auto v = f->second;
+                v.name = pname;
+                ctxt.push(v);
+            } else {
+                auto eqExp = dynamic_cast<EqExp*>(((MetaParam1*)param)->optionaleqexp_);
+                if (eqExp == nullptr) {
+                    throw CodeError("Module parameter '" + pname +
+                                    "' must be specified!", param->line_number);
+                }
+                ValTy val = Expression::evalExpression(ctxt, eqExp->exp_);
+                val = Expression::truncOrExtend(ctxt, val, _params[pname]);
+                if (val.ty != _params[pname]) {
+                    throw CodeError("Metaparameter/argument type mismatch",
+                                    param->line_number);
+                }
+                ctxt.push(Variable(val.ty, val.val, pname));
+            }
+        }
+    }
+
+    for (ModDef* def: *_modAst->listmoddef_) {
+        auto storage = dynamic_cast<DefStorage*>(def);
+        if (storage != nullptr) {
+            string id = storage->id_;
+            auto ty = mod->getType(&ctxt, storage->type_);
+
+            mod->addStorage(ty, id);
+            continue;
+        }
+
+        auto inp = dynamic_cast<DefInput*>(def);
+        if (inp != nullptr) {
+            string id = inp->id_;
+            auto ty = mod->getType(&ctxt, inp->type_);
+            if (ty.isArray())
+                throw CodeError("Ports cannot be arrays", def->line_number);
+
+            mod->addInputPort(ty, id);
+            continue;
+        }
+
+        auto outp = dynamic_cast<DefOutput*>(def);
+        if (outp != nullptr) {
+            string id = outp->id_;
+            auto ty = mod->getType(&ctxt, outp->type_);
+            if (ty.isArray())
+                throw CodeError("Ports cannot be arrays", def->line_number);
+
+            mod->addOutputPort(ty, id);
+            continue;
+        }
+
+        auto intp = dynamic_cast<DefInternal*>(def);
+        if (intp != nullptr) {
+            string id = intp->id_;
+            auto ty = mod->getType(&ctxt, intp->type_);
+            if (ty.isArray())
+                throw CodeError("Ports cannot be arrays", def->line_number);
+
+            mod->addInternalPort(ty, id);
+            continue;
+        }
+
+        auto event = dynamic_cast<DefEvent*>(def);
+        if (event != nullptr) {
+            auto ev = Event::create(&ctxt, event, mod);
+            mod->addEvent(ev);
+
+            continue;
+        }
+
+        auto connection = dynamic_cast<DefConnect*>(def);
+        if (connection != nullptr) {
+            mod->addConnection(connection);
+
+            continue;
+        }
+
+        assert(false && "Don't know how to deal with module-level def");
+    }
+
+    return mod;
 }
 
 } // namespace spatialc

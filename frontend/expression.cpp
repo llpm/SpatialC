@@ -114,7 +114,7 @@ ValTy Expression::eval(const Context& ctxt, EArrAcc* exp) {
         assert(memTypeF != ctxt.mod()->nameTypes()->end());
         auto memType = memTypeF->second;
 
-        idx = ctxt.ev()->truncOrExtend(idx, mem->read()->req()->type());
+        idx = truncOrExtend(ctxt, idx, mem->read()->req()->type());
 
         auto tyF = ctxt.mod()->nameTypes()->find(id);
         assert(tyF != ctxt.mod()->nameTypes()->end() &&
@@ -141,7 +141,7 @@ ValTy Expression::eval(const Context& ctxt, EArrAcc* exp) {
         auto mux = new Multiplexer(val.ty.asVector()->length(), 
                                    val.ty.asVector()->contained().llvm());
         auto muxIn = mux->din()->join(*ctxt.ev()->conns());
-        idx = ctxt.ev()->truncOrExtend(idx, muxIn->din(0)->type());
+        idx = truncOrExtend(ctxt, idx, muxIn->din(0)->type());
         ctxt.ev()->conns()->connect(idx, muxIn->din(0));
         for (unsigned i=0; i<val.ty.asVector()->length(); i++) {
             ctxt.ev()->conns()->connect(split->dout(i), muxIn->din(i+1));
@@ -171,7 +171,7 @@ ValTy Expression::eval(const Context& ctxt, EStructLiteral* exp) {
         }
         auto fieldNum = fieldNumF->second;
         auto exp = evalExpression(ctxt, ((StructLiteralField1*)sl)->exp_);
-        exp = ctxt.ev()->truncOrExtend(exp, strTy->subTypes(fieldNum));
+        exp = truncOrExtend(ctxt, exp, strTy->subTypes(fieldNum));
         assert(fieldNum < fields.size());
         fields[fieldNum] = exp.val;
         if (strTy->subTypes(fieldNum) != exp.ty) {
@@ -209,7 +209,7 @@ ValTy Expression::eval(const Context& ctxt, EVectorLiteral* expLit) {
     auto join = new Join(vecTy->llvm());
     assert(join->dout()->type() == vecTy->llvm());
     for (unsigned i=0; i<vals.size(); i++) {
-        vals[i] = ctxt.ev()->truncOrExtend(vals[i], largest.llvm());
+        vals[i] = truncOrExtend(ctxt, vals[i], largest.llvm());
         ctxt.ev()->connect(vals[i].val, join->din(i));
     }
     return ValTy(join->dout(), Type(vecTy));
@@ -416,4 +416,33 @@ ValTy Expression::evalExpression(const Context& ctxt, Exp* exp) {
                     exp->line_number);
 }
 
+/**
+ * Automatically truncate or extend ints to make ports match. This is done in
+ * pushes and assignments automatically and without warning.
+ */
+OutputPort* Expression::truncOrExtend(
+        const Context& ctxt, OutputPort* op, llvm::Type* ty) {
+    if (ty->isIntegerTy() && op->type()->isIntegerTy() &&
+            ty->getIntegerBitWidth() != op->type()->getIntegerBitWidth()) {
+        int diff = ty->getIntegerBitWidth() - op->type()->getIntegerBitWidth();
+        Function* func = nullptr;
+        if (diff > 0) {
+            func = new IntExtend((unsigned)diff, false, op->type());
+        } else {
+            func = new IntTruncate((unsigned)(diff * -1), op->type());
+        }
+        ctxt.conns()->connect(op, func->din());
+        return func->dout();
+    } else {
+        return op;
+    }
+}
+
+ValTy Expression::truncOrExtend(
+        const Context& ctxt, ValTy val, Type ty) {
+    auto newOp = truncOrExtend(ctxt, val.val, ty.llvm());
+    if (newOp == val.val)
+        return val;
+    return ValTy(newOp, ty);
+}
 } // namespace spatialc 

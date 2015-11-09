@@ -2,10 +2,20 @@ PDefs.Package ::= [Def] ;
 
 DefImport.  Def ::= "import" [PackageName] ";" ;
 DefPackage. Def ::= "package" [PackageName] ";" ;
-DefModule.  Def ::= "module" Id "{" [ModDef] "}" ;
-DefStruct.  Def ::= "struct" Id "{" [StructDef] "}" ;
+DefModule.  Def ::= "module" Id MetaParamDecl "{" [ModDef] "}" ;
+DefStruct.  Def ::= "struct" Id MetaParamDecl "{" [StructDef] "}" ;
 terminator Def "" ;
 
+NoParams.   MetaParamDecl ::= ;
+SomeParams. MetaParamDecl ::= "(" [MetaParam] ")" ;
+
+EqExp.   OptionalEqExp ::= "=" Exp;
+NoEqExp. OptionalEqExp ::= ;
+
+rules MetaParam ::= Type Id OptionalEqExp ;
+separator MetaParam "," ;
+
+DefConst.   ModDef ::= "const" Type Id OptionalEqExp ";" ;
 DefStorage. ModDef ::= Type Id ";" ;
 DefInput.   ModDef ::= "input" Type Id ";" ;
 DefOutput.  ModDef ::= "output" Type Id ";" ;
@@ -101,9 +111,16 @@ separator StructLiteralField "," ;
 
 token Id ((letter | '_') (letter | digit | '_')*) ;
 
+ConstName. IntOrName ::= Id ;
+Int.       IntOrName ::= Integer ;
+
 TyName.      Type  ::= Id ;
-TyArray.     Type  ::= Type "[" Integer "]" ;
-TyVector.    Type  ::= Type "<" Integer ">" ;
+TyNameParams.Type  ::= Id "!" "(" [TemplateArg] ")" ;
+TyArray.     Type  ::= Type "[" IntOrName "]" ;
+TyVector.    Type  ::= Type "<" IntOrName ">" ;
+
+rules TemplateArg ::= Id "=" Exp ; 
+separator TemplateArg "," ;
 
 comment "//" ;
 comment "/*" "*/" ;

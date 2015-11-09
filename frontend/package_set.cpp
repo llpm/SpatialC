@@ -3,7 +3,7 @@
 #include <cassert>
 #include <frontend/type.hpp>
 #include <frontend/exception.hpp>
-#include <frontend/translate.hpp>
+#include <frontend/module.hpp>
 #include "grammar/Parser.H"
 #include "grammar/Printer.H"
 
@@ -12,7 +12,7 @@ using namespace std;
 namespace spatialc {
 
 PackageSet::PackageSet(llpm::Design& design, vector<string> inclDirs):
-    _trans(new Translator(design, *this)),
+    _design(design),
     _paths(inclDirs)
 { }
 
@@ -127,7 +127,7 @@ void Package::translateStruct(::DefStruct* ast) {
 }
 
 llpm::Design& Package::design() {
-    return _set->trans()->design();
+    return _set->design();
 }
 
 void Package::lazyBuild(::Package* pkgAst) {
@@ -170,11 +170,25 @@ void Package::lazyBuild(::Package* pkgAst) {
     return f->second;
 }
 
-llpm::Module* Package::instantiateModule(std::string moduleName) {
+SpatialCModuleTemplate* Package::getModule(std::string moduleName) {
+    auto f = _moduleTemplates.find(moduleName);
+    if (f != _moduleTemplates.end())
+        return f->second;
+
     auto ast = getModuleAST(moduleName);
     if (ast == nullptr)
         return nullptr;
-    auto mod = _set->trans()->translate(this, ast);
+    auto templ = new SpatialCModuleTemplate(this, ast);
+    _moduleTemplates[moduleName] = templ;
+    return templ;
+}
+
+llpm::Module* Package::instantiateModule(std::string moduleName, 
+                                         std::map<std::string, Variable> args) {
+    auto templ = getModule(moduleName);
+    if (templ == nullptr)
+        return nullptr;
+    auto mod = templ->args(args)->instantiate();
     _modules[moduleName].insert(mod);
     return mod;
 }
@@ -188,7 +202,7 @@ bool Package::findTypeLocal(std::string typeName, Type& ty) {
 
     auto modF = _moduleASTs.find(typeName);
     if (modF != _moduleASTs.end()) {
-        ty = Type(instantiateModule(typeName));
+        ty = Type(getModule(typeName));
         return true;
     }
 

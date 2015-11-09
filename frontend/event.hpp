@@ -2,14 +2,16 @@
 #define __SPATIALC_FRONTEND_EVENT_HPP__
 
 #include <llpm/module.hpp>
-#include <frontend/translate.hpp>
 #include <frontend/type.hpp>
 #include <frontend/module.hpp>
+#include <llpm/ports.hpp>
 
 // Fwd Defs.
 class PushStmt;
 
 namespace spatialc {
+
+using namespace llpm;
 
 class Context;
 
@@ -30,8 +32,6 @@ class Event : public llpm::ContainerModule {
     void addVariables(Context& ctxt);
     void buildInitial(Context&, ListEventParam* list);
     void processStatement(Context&, Statement*);
-    OutputPort* truncOrExtend(OutputPort* op, llvm::Type* ty);
-    ValTy truncOrExtend(ValTy op, Type ty);
     void processBlock(Context&, ::Block*);
     void processStmt(Context&, VarStmt*);
     void processStmt(Context&, AssignStmt*);
