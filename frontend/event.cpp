@@ -129,7 +129,29 @@ llpm::InputPort* Event::getSinkForPush(Context& ctxt, PushStmt* pushStmt) {
         if (pushSubreg != nullptr) {
             // Push to _all_ of the modules in the array
             string subreg = pushSubreg->id_;
-            assert(false);
+            vector<InputPort*> allports;
+            llvm::Type* ty;
+            for (unsigned i=0; i<smArray.size(); i++) {
+                auto outp = getSinkForSimple(str(
+                        boost::format("%1%[%2%].%3%")
+                            % pushStmt->id_
+                            % i
+                            % subreg));
+                allports.push_back(outp);
+                if (i == 0)
+                    ty = allports.front()->type();
+                else
+                    if (allports.back()->type() != ty)
+                        throw CodeError("When pushing to entire array, input "
+                                        "type must match in entire array!",
+                                        pushStmt->line_number);
+            }
+
+            auto id = new Identity(ty);
+            for (auto ip: allports) {
+                ctxt.conns()->connect(id->dout(), ip);
+            }
+            return id->din();
         }
 
         auto pushArrayDot = dynamic_cast<PushArrayDot*>(pushStmt->pushsubdest_);
@@ -163,7 +185,32 @@ llpm::InputPort* Event::getSinkForPush(Context& ctxt, PushStmt* pushStmt) {
                 return outp;
             } else {
                 // Output is dynamically selected. Need a router
-                assert(false);
+                vector<InputPort*> allports;
+                llvm::Type* ty;
+                for (unsigned i=0; i<smArray.size(); i++) {
+                    auto outp = getSinkForSimple(str(
+                            boost::format("%1%[%2%].%3%")
+                                % pushStmt->id_
+                                % i
+                                % subreg));
+                    allports.push_back(outp);
+                    if (i == 0)
+                        ty = allports.front()->type();
+                    else
+                        if (allports.back()->type() != ty)
+                            throw CodeError("When pushing to array members, input "
+                                            "type must match in entire array!",
+                                            pushStmt->line_number);
+                }
+
+                auto router = new Router(allports.size(), ty);
+                for (unsigned i=0; i<allports.size(); i++) {
+                    ctxt.conns()->connect(router->dout(i), allports[i]);
+                }
+                auto rtrIdx = router->din()->join(*ctxt.conns())->din(0);
+                exp = Expression::truncOrExtend(ctxt, exp, rtrIdx->type());
+                ctxt.conns()->connect(exp.val, rtrIdx);
+                return router->din()->join(*ctxt.conns())->din(1);
             }
         }
 

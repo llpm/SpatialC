@@ -43,13 +43,11 @@ module Harp (
     input int din;
     output DataOut dout;
 
-    static_for(N: 0 .. NumPart) {
-        event(cnfg -> cfg) {
-            if (cfg.partNum == N) {
-                parts[N].cnfg <- cfg.upperBound;
-            }
-        }
+    event(cnfg -> cfg) {
+        parts[cfg.partNum].cnfg <- cfg.upperBound;
+    }
 
+    static_for(N: 0 .. NumPart) {
         event(parts[N].part_data -> data) {
             dout <- DataOut {
                 partNum: N,
