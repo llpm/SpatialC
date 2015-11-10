@@ -9,9 +9,9 @@ module Simple {
     output int total;
     Accumulator acc;
 
-    valIn -> acc.value;
-    rst -> acc.rst;
-    acc.total -> total;
+    connect valIn -> acc.value;
+    connect rst -> acc.rst;
+    connect acc.total -> total;
 
     event (valIn -> msg) {
         byTwo <- msg * 2;

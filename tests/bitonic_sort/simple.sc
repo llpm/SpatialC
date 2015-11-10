@@ -49,13 +49,13 @@ module Simple {
     Switch d;
     Switch e;
 
-    a.hi -> c.a;
-    a.lo -> d.a;
-    b.hi -> c.b;
-    b.lo -> d.b;
+    connect a.hi -> c.a;
+    connect a.lo -> d.a;
+    connect b.hi -> c.b;
+    connect b.lo -> d.b;
 
-    d.hi -> e.a;
-    c.lo -> e.b;
+    connect d.hi -> e.a;
+    connect c.lo -> e.b;
 
     event (sort -> sort) {
         a.a <- vec[0];

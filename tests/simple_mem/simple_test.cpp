@@ -12,6 +12,7 @@ int main() {
 
     for (int32_t i=0; i<5; i++) {
         s->setReq(i);
+        s->run(5);
         s->getReq();
         int32_t j;
         s->getResp((uint32_t*)&j);

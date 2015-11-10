@@ -15,10 +15,10 @@ module Simple {
     input int read;
     output int read_val;   
 
-    resetAll -> mem.resetAll;
-    write -> mem.write;
-    read -> mem.read;
-    mem.read_val -> read_val;
+    connect resetAll -> mem.resetAll;
+    connect write -> mem.write;
+    connect read -> mem.read;
+    connect mem.read_val -> read_val;
 }
 
 module Memory (

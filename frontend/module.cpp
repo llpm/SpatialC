@@ -289,59 +289,21 @@ std::string SpatialCModule::nameChannelSpecifier(Context& ctxt, ::ChannelSpecifi
         return name;
     }
 
-    return "";
-}
-llpm::Port* SpatialCModule::resolve(Context& ctxt, ::ChannelSpecifier* cs, bool isOutput) {
-    auto name = nameChannelSpecifier(ctxt, cs);
-    if (name != "")
-        return resolve(ctxt, name, isOutput);
-
     auto dot = dynamic_cast<DotCS*>(cs);
     if (dot != nullptr) {
         auto smF = _submodules.find(dot->id_1);
         if (smF == _submodules.end()) {
             throw CodeError("Could not find submodule " + dot->id_1, dot->line_number);
         }
-        auto sm = smF->second;
-
-        Port* smPort = nullptr;
-        if (isOutput) {
-            for (auto op: sm->outputs()) {
-                if (op->name() == dot->id_2) {
-                    if (smPort != nullptr) {
-                        throw CodeError("Found multiple ports called " + dot->id_2);
-                    }
-                    smPort = op;
-                }
-            }
-        } else {
-            InputPort* smIP = nullptr;
-            for (auto ip: sm->inputs()) {
-                if (ip->name() == dot->id_2) {
-                    if (smPort != nullptr) {
-                        throw CodeError("Found multiple ports called " + dot->id_2);
-                    }
-                    smIP = ip;
-                    smPort = ip;
-                }
-            }
-
-            auto id = _namedInternal[dot->id_1 + "." + smIP->name()];
-            assert(id != nullptr);
-            smIP = _internalSelects[id]->createInput();
-            smPort = smIP; 
-        }
-
-        if (smPort == nullptr) {
-            if (isOutput)
-                throw CodeError("Could not find output port called " + dot->id_2);
-            else
-                throw CodeError("Could not find input port called " + dot->id_2);
-        }
-
-        return smPort;
+        return dot->id_1 + "." + dot->id_2;
     }
 
+    return "";
+}
+llpm::Port* SpatialCModule::resolve(Context& ctxt, ::ChannelSpecifier* cs, bool isOutput) {
+    auto name = nameChannelSpecifier(ctxt, cs);
+    if (name != "")
+        return resolve(ctxt, name, isOutput);
 
     assert(false);
 }
