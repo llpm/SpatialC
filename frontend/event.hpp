@@ -25,7 +25,6 @@ class Event : public llpm::ContainerModule {
                                            _memWriteConnections;
     std::map<std::string, std::vector<std::pair<OutputPort*, InputPort*>>>
                                            _memReadConnections;
-    std::map<PushStmt*, InputPort*>        _outpConnections;
 
     Event(llpm::Design&, std::string name, SpatialCModule* mod);
 
@@ -41,8 +40,9 @@ class Event : public llpm::ContainerModule {
     void processStmt(Context&, PushStmt*);
     void processStmt(Context&, ReturnStmt*);
     void processStmt(Context&, StaticForStmt*);
-    void scanForOutputs(::Block*);
 
+    InputPort* getSinkForSimple(std::string);
+    InputPort* getSinkForPush(Context&, PushStmt*);
     ValTy evalExpression(const Context&, Exp*);
 
 public:
@@ -51,7 +51,6 @@ public:
                          SpatialCModule* module);
 
     DEF_GET_NP(inpConnections);
-    DEF_GET_NP(outpConnections);
     DEF_GET_NP(ioConnections);
     DEF_GET_NP(memWriteConnections);
     DEF_GET_NP(memReadConnections);

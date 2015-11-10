@@ -34,7 +34,8 @@ class SpatialCModule : public llpm::ContainerModule {
     std::map<std::string, llpm::Memory*>     _namedStorage;
     std::map<std::string, Type>              _nameTypes;
 
-    std::map<std::string, llpm::Module*>     _submodules;
+    std::map<std::string, llpm::Module*>              _submodules;
+    std::map<std::string, std::vector<llpm::Module*>> _submoduleArrays;
 
     std::map<llpm::OutputPort*, llpm::Select*> _outputSelects;
     std::map<llpm::Identity*,   llpm::Select*> _internalSelects;
@@ -51,6 +52,7 @@ public:
     DEF_GET(namedInternal);
     DEF_GET(nameTypes);
     DEF_GET(submodules);
+    DEF_GET(submoduleArrays);
 
     Type getType(const Context*, std::string typeName);
     Type getType(const Context*, ::Type* astType);
@@ -59,10 +61,13 @@ private:
     llpm::InputPort*  addInputPort(Type, std::string name);
     llpm::OutputPort* addOutputPort(Type, std::string name);
     llpm::Identity*   addInternalPort(Type, std::string name);
+    void addSubmodule(std::string name, llpm::Module*);
     void addStorage(Type, std::string name);
     void addEvent(Event*);
-    void addConnection(::DefConnect*);
-    llpm::Port* resolve(::ChannelSpecifier*, bool isOutput);
+    void addConnection(Context& ctxt, ::DefConnect*);
+    llpm::Port* resolve(Context& ctxt, std::string, bool isOutput);
+    llpm::Port* resolve(Context& ctxt, ::ChannelSpecifier*, bool isOutput);
+    std::string nameChannelSpecifier(Context& ctxt, ::ChannelSpecifier*);
 
     bool handleDeclDef(Context& ctxt, ModDef*);
     bool handleModDef(Context& ctxt, ModDef*);

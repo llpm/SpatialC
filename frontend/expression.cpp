@@ -49,6 +49,9 @@ ValTy Expression::eval(const Context& ctxt, EDouble* exp) {
 ValTy Expression::evalId(const Context& ctxt, std::string id) {
     auto v = ctxt.find(id);
     if (v != nullptr) {
+        if (v->op == nullptr && v->constant != nullptr) {
+            return ValTy((new llpm::Constant(v->constant))->dout(), v->ty);
+        }
         return ValTy(v->op, v->ty);
     }
 
@@ -73,6 +76,7 @@ ValTy Expression::evalId(const Context& ctxt, std::string id) {
         }
 
         auto ev = ctxt.ev();
+        assert(ev != nullptr);
         auto inId = new Identity(mem->read()->respType());
         std::pair<OutputPort*, InputPort*> iface
             (ctxt.ev()->addOutputPort(ctxt.controlSignal),
@@ -80,7 +84,7 @@ ValTy Expression::evalId(const Context& ctxt, std::string id) {
 
         ev->_memReadConnections[id].push_back(iface);
         if (ctxt.readController != nullptr)
-            ctxt.readController->newControl(ctxt.ev()->conns(), inId->dout());
+            ctxt.readController->newControl(ctxt.conns(), inId->dout());
         return ValTy(inId->dout(), tyF->second);
     }
 
@@ -123,11 +127,12 @@ ValTy Expression::eval(const Context& ctxt, EArrAcc* exp) {
                     "Cannot find type!");
 
         auto readWait = new Wait(idx->type());
-        ctxt.ev()->connect(idx, readWait->din());
-        readWait->newControl(ctxt.ev()->conns(), ctxt.controlSignal);
+        ctxt.conns()->connect(idx, readWait->din());
+        readWait->newControl(ctxt.conns(), ctxt.controlSignal);
         idx = readWait->dout();
 
         auto ev = ctxt.ev();
+        assert(ev != nullptr);
         auto inId = new Identity(mem->read()->respType());
         std::pair<OutputPort*, InputPort*> iface
             (ctxt.ev()->addOutputPort(idx),
@@ -135,18 +140,18 @@ ValTy Expression::eval(const Context& ctxt, EArrAcc* exp) {
 
         ev->_memReadConnections[id].push_back(iface);
         if (ctxt.readController != nullptr)
-            ctxt.readController->newControl(ctxt.ev()->conns(), inId->dout());
+            ctxt.readController->newControl(ctxt.conns(), inId->dout());
         return ValTy(inId->dout(), tyF->second.asArray()->contained());
     } else if (val.ty.isVector()) {
 
-        auto split = val.val->split(*ctxt.ev()->conns());
+        auto split = val.val->split(*ctxt.conns());
         auto mux = new Multiplexer(val.ty.asVector()->length(), 
                                    val.ty.asVector()->contained().llvm());
-        auto muxIn = mux->din()->join(*ctxt.ev()->conns());
+        auto muxIn = mux->din()->join(*ctxt.conns());
         idx = truncOrExtend(ctxt, idx, muxIn->din(0)->type());
-        ctxt.ev()->conns()->connect(idx, muxIn->din(0));
+        ctxt.conns()->connect(idx, muxIn->din(0));
         for (unsigned i=0; i<val.ty.asVector()->length(); i++) {
-            ctxt.ev()->conns()->connect(split->dout(i), muxIn->din(i+1));
+            ctxt.conns()->connect(split->dout(i), muxIn->din(i+1));
         }
         return ValTy(mux->dout(), val.ty.asVector()->contained());
     } else {
@@ -191,7 +196,7 @@ ValTy Expression::eval(const Context& ctxt, EStructLiteral* exp) {
 
     auto j = new Join(ty.llvm());
     for (unsigned i=0; i<fields.size(); i++) {
-        ctxt.ev()->conns()->connect(fields[i], j->din(i));
+        ctxt.conns()->connect(fields[i], j->din(i));
     }
     return ValTy(j->dout(), ty);
 }
@@ -212,7 +217,7 @@ ValTy Expression::eval(const Context& ctxt, EVectorLiteral* expLit) {
     assert(join->dout()->type() == vecTy->llvm());
     for (unsigned i=0; i<vals.size(); i++) {
         vals[i] = truncOrExtend(ctxt, vals[i], largest.llvm());
-        ctxt.ev()->connect(vals[i].val, join->din(i));
+        ctxt.conns()->connect(vals[i].val, join->din(i));
     }
     return ValTy(join->dout(), Type(vecTy));
 }
@@ -223,7 +228,7 @@ ValTy Expression::eval(const Context& ctxt, EDot* exp) {
         throw CodeError("Can only use dot (.) accessor on structs", exp->line_number);
     }
 
-    return val.ty.asStruct()->accessor(ctxt.ev()->conns(), val.val, exp->id_);
+    return val.ty.asStruct()->accessor(ctxt.conns(), val.val, exp->id_);
 }
 
 template<typename IntOp>
@@ -270,8 +275,8 @@ ValTy evalBinOp(const Context& ctxt,
     ValTy aout;
     Create c;
     c(exp, a, b, ain, aout); 
-    ctxt.ev()->connect(a.val, ain->join(*ctxt.ev()->conns(), 0));
-    ctxt.ev()->connect(b.val, ain->join(*ctxt.ev()->conns(), 1));
+    ctxt.conns()->connect(a.val, ain->join(*ctxt.conns(), 0));
+    ctxt.conns()->connect(b.val, ain->join(*ctxt.conns(), 1));
     return aout;
 }
 

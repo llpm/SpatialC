@@ -21,13 +21,14 @@ DefInput.   ModDef ::= "input" Type Id ";" ;
 DefOutput.  ModDef ::= "output" Type Id ";" ;
 DefInternal.ModDef ::= "internal" Type Id ";" ;
 DefEvent.   ModDef ::= "event" EventName "(" [EventParam] ")" Block ;
-DefConnect. ModDef ::= ChannelSpecifier "->" ChannelSpecifier ";" ;
+DefConnect. ModDef ::= "connect" ChannelSpecifier "->" ChannelSpecifier ";" ;
 DefFor.     ModDef ::= "static_for" "(" Id ":" Exp ".." Exp ")" "{" [ModDef] "}" ;
 DefIf.      ModDef ::= "static_if" "(" Exp ")" "{" [ModDef] "}" ;
 terminator ModDef "" ;
 
 SimpleCS.   ChannelSpecifier ::= Id;
 DotCS.      ChannelSpecifier ::= Id "." Id ;
+ArrayDotCS. ChannelSpecifier ::= Id "[" Exp "]" "." Id ;
 
 NoEvName.   EventName ::= ;
 EvName.     EventName ::= "\"" Id "\"" ;
@@ -35,12 +36,10 @@ EvName.     EventName ::= "\"" Id "\"" ;
 rules EventParam ::= EventOrCond "->" Id ;
 separator EventParam "," ;
 
-SimpleEvOr. EventOrCond ::= Id ;
-SubmodEvOr. EventOrCond ::= Id "." Id ;
+CSEventCond.EventOrCond ::= ChannelSpecifier;
 ListEvOr.   EventOrCond ::= "(" [EventOrList] ")" ;
 
-SimpleOrList. EventOrList ::= Id ;
-SubmodOrList. EventOrList ::= Id "." Id ;
+rules       EventOrList ::= ChannelSpecifier;
 separator EventOrList "|" ;
 
 DefSubstor. StructDef ::= Type Id ";" ;
@@ -61,9 +60,10 @@ StaticIfStmt.  Statement ::= "static_if" "(" Exp ")" Block ;
 ReturnStmt.    Statement ::= "return" Exp ";" ;
 terminator     Statement "" ;
 
-PushSubreg. PushSubDest ::= "." Id ;
-PushArray.  PushSubDest ::= "[" Exp "]" ;
-PushReg.    PushSubDest ::= ;
+PushSubreg.  PushSubDest ::= "." Id ;
+PushArray.   PushSubDest ::= "[" Exp "]" ;
+PushArrayDot.PushSubDest ::= "[" Exp "]" "." Id ;
+PushReg.     PushSubDest ::= ;
 
 VarAssign.  VarAssignment ::= "=" Exp ";" ;
 NoVarAssign.VarAssignment ::= ;

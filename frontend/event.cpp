@@ -8,6 +8,8 @@
 #include <libraries/ext/mux_route.hpp>
 #include <libraries/util/types.hpp>
 
+#include <analysis/constant.hpp>
+
 #include <llvm/IR/Constants.h>
 #include <cassert>
 
@@ -20,30 +22,6 @@ Event::Event(llpm::Design& design, std::string name, SpatialCModule* mod) :
     _mod(mod) {
 }
 
-static std::string getEvName(EventOrList* orEv) {
-    auto simple = dynamic_cast<SimpleOrList*>(orEv);
-    if (simple != nullptr)
-        return simple->id_;
-
-    auto sub = dynamic_cast<SubmodOrList*>(orEv);
-    if (sub != nullptr)
-        return sub->id_1 + "." + sub->id_2;
-
-    assert(false);
-}
-
-static std::string getEvName(EventOrCond* cond) {
-    auto simple = dynamic_cast<SimpleEvOr*>(cond);
-    if (simple != nullptr)
-        return simple->id_;
-
-    auto sub = dynamic_cast<SubmodEvOr*>(cond);
-    if (sub != nullptr)
-        return sub->id_1 + "." + sub->id_2;
-
-    return "";
-}
-
 void Event::buildInitial(Context& ctxt, ListEventParam* list) {
     for (auto evParamI: *list) {
         auto evParam = dynamic_cast<EventParam1*>(evParamI);
@@ -52,16 +30,19 @@ void Event::buildInitial(Context& ctxt, ListEventParam* list) {
         string paramName = evParam->id_;
         vector<string> inpNames;
         
-        auto simpleName = getEvName(evParam->eventorcond_);
-        if (simpleName != "") {
+        auto simplecs = dynamic_cast<CSEventCond*>(evParam->eventorcond_);
+        if (simplecs != nullptr) {
             // No or condition -- just a simple input
-            inpNames.push_back(simpleName);
+            auto port = _mod->nameChannelSpecifier(ctxt, simplecs->channelspecifier_);
+            inpNames.push_back(port);
         }
 
         auto orList = dynamic_cast<ListEvOr*>(evParam->eventorcond_);
         if (orList != nullptr) {
             for (EventOrList* orEv: *orList->listeventorlist_) {
-                inpNames.push_back(getEvName(orEv));
+                auto cs = ((EventOrListChannelSpecifier*)orEv)->channelspecifier_;
+                auto port = _mod->nameChannelSpecifier(ctxt, cs);
+                inpNames.push_back(port);
             }
         }
 
@@ -107,76 +88,101 @@ void Event::buildInitial(Context& ctxt, ListEventParam* list) {
     ctxt.controlSignal = controlWait->dout();
 }
 
-void Event::scanForOutputs(::Block* blockD) {
-    auto block = dynamic_cast<Block1*>(blockD);
-    assert(block != nullptr);
+llpm::InputPort* Event::getSinkForSimple(std::string outName) {
+    // Look for storage by this name
+    auto fs = _mod->namedStorage()->find(outName);
+    if (fs != _mod->namedStorage()->end()) {
+        // Do output stuff separately
+        return nullptr;
+    }
 
-    for (auto stmt: *block->liststatement_) {
-        auto blockStmt = dynamic_cast<BlockStmt*>(stmt);
-        if (blockStmt != nullptr) {
-            auto stmtList = new ListStatement();
-            *stmtList = *((::Block1*)blockStmt->block_)->liststatement_;
-            ::Block1 b(nullptr, stmtList);
-            scanForOutputs(&b);
-            continue;
+    // Look for output channel by this name
+    auto fc = _mod->namedOutputs()->find(outName);
+    if (fc != _mod->namedOutputs()->end()) {
+        auto op = createOutputPort(fc->second->type());
+        auto sink = getSink(op);
+        _ioConnections[outName].insert(op);
+
+        return sink;
+    }
+
+    // Look for internal channel by this name
+    auto fi = _mod->namedInternal()->find(outName);
+    if (fi != _mod->namedInternal()->end()) {
+        auto op = createOutputPort(fi->second->din()->type());
+        auto sink = getSink(op);
+        _ioConnections[outName].insert(op);
+
+        return sink;
+    }
+
+    throw SemanticError(
+        "Cannot find output channel or storage for'"
+        + outName + "'!");
+}
+
+llpm::InputPort* Event::getSinkForPush(Context& ctxt, PushStmt* pushStmt) {
+    if (mod()->submoduleArrays()->count(pushStmt->id_)) {
+        const auto smArray = mod()->submoduleArrays()->find(pushStmt->id_)->second;
+
+        auto pushSubreg = dynamic_cast<PushSubreg*>(pushStmt->pushsubdest_);
+        if (pushSubreg != nullptr) {
+            // Push to _all_ of the modules in the array
+            string subreg = pushSubreg->id_;
+            assert(false);
         }
 
-        auto ifStmt = dynamic_cast<IfStmt*>(stmt);
-        if (ifStmt != nullptr) {
-            scanForOutputs(ifStmt->block_);
-            auto elseBlock = dynamic_cast<Else*>(ifStmt->elseblock_);
-            if (elseBlock != nullptr) {
-                scanForOutputs(elseBlock->block_);
+        auto pushArrayDot = dynamic_cast<PushArrayDot*>(pushStmt->pushsubdest_);
+        if (pushArrayDot != nullptr) {
+            // Push to one of the modules in the array
+            string subreg = pushArrayDot->id_;
+
+            auto exp = evalExpression(ctxt, pushArrayDot->exp_);
+            if (!exp.val->type()->isIntegerTy()) {
+                throw CodeError("Index expression must evaluate to int!", 
+                                pushArrayDot->exp_->line_number);
             }
-            continue;
-        }
-
-        auto pushStmt = dynamic_cast<PushStmt*>(stmt);
-        if (pushStmt != nullptr) {
-            string outName = pushStmt->id_;
-
-            if (mod()->submodules()->count(outName) > 0) {
-                auto pushSubreg = dynamic_cast<PushSubreg*>(pushStmt->pushsubdest_);
-                if (pushSubreg == nullptr) {
+            auto c = llpm::EvalConstant(ctxt.conns(), exp.val);
+            if (c != nullptr) {
+                // Only one of the outputs gets written to ever, statically determined
+                auto idx = c->getUniqueInteger().getLimitedValue();
+                if (idx >= smArray.size()) {
                     throw CodeError(
-                        "When pushing to submodule, a channel in the "
-                        "submodule must be specified",
-                        stmt->line_number);
+                        str(boost::format("Constant index %1% resolved "
+                                          "greater than array (%2%)")
+                            % idx
+                            % smArray.size()),
+                        pushArrayDot->exp_->line_number);
                 }
-                outName += "." + pushSubreg->id_;
+                auto outp = getSinkForSimple(str(
+                        boost::format("%1%[%2%].%3%")
+                            % pushStmt->id_
+                            % idx
+                            % subreg));
+                assert(outp != nullptr);
+                return outp;
+            } else {
+                // Output is dynamically selected. Need a router
+                assert(false);
             }
-
-            // Look for storage by this name
-            auto fs = _mod->namedStorage()->find(outName);
-            if (fs != _mod->namedStorage()->end()) {
-                // Do output stuff later on
-                continue;
-            }
-
-            // Look for output channel by this name
-            auto fc = _mod->namedOutputs()->find(outName);
-            if (fc != _mod->namedOutputs()->end()) {
-                auto op = createOutputPort(fc->second->type());
-                _outpConnections[pushStmt] = getSink(op);
-                _ioConnections[outName].insert(op);
-
-                continue;
-            }
-
-            // Look for internal channel by this name
-            auto fi = _mod->namedInternal()->find(outName);
-            if (fi != _mod->namedInternal()->end()) {
-                auto op = createOutputPort(fi->second->din()->type());
-                _outpConnections[pushStmt] = getSink(op);
-                _ioConnections[outName].insert(op);
-
-                continue;
-            }
-
-            throw SemanticError(
-                "Cannot find output channel or storage for'"
-                + outName + "'!");
         }
+
+        throw CodeError("Can only push to a particular port of a submodule "
+                        " or submodule array", pushStmt->line_number);
+
+    } else if (mod()->submodules()->count(pushStmt->id_) > 0) {
+        // This statement pushing to a submodule
+        auto pushSubreg = dynamic_cast<PushSubreg*>(pushStmt->pushsubdest_);
+        if (pushSubreg == nullptr) {
+            throw CodeError(
+                "When pushing to submodule, a channel in the "
+                "submodule must be specified",
+                pushStmt->line_number);
+        }
+        
+        return getSinkForSimple(pushStmt->id_ + "." + pushSubreg->id_);
+    } else {
+        return getSinkForSimple(pushStmt->id_);
     }
 }
 
@@ -201,7 +207,6 @@ Event* Event::create(Context* parentCtxt,
     }
 
     // Find all the outputs this event uses
-    ev->scanForOutputs(eventAst->block_);
     ev->processBlock(ctxt, eventAst->block_);
 
     return ev;
@@ -324,10 +329,10 @@ void Event::processStmt(Context& ctxt, StaticForStmt* stmt) {
     for (int i=from; i<to; i++) {
         auto llvmConst = llvm::ConstantInt::get(intTy, i, true);
         Variable v(Type(intTy),
-                   (new Constant(llvmConst))->dout(),
+                   nullptr,
                    stmt->id_,
                    llvmConst);
-        ctxt.push(v);
+        forCtxt.push(v);
         processBlock(forCtxt, stmt->block_);
     }
 }
@@ -450,11 +455,9 @@ void Event::processStmt(Context& ctxt, PushStmt* stmt) {
         val = readWait->dout();
     }
 
-    auto outpF = _outpConnections.find(stmt);
-    if (outpF != _outpConnections.end()) {
-        auto outp = _outpConnections[stmt];
+    auto outp = getSinkForPush(ctxt, stmt);
+    if (outp != nullptr) {
         val = Expression::truncOrExtend(ctxt, val, outp->type());
-
         connect(val, outp);
         return;
     }

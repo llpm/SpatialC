@@ -9,6 +9,7 @@
 #include <analysis/constant.hpp>
 
 #include <llvm/IR/Constants.h>
+#include <boost/format.hpp>
 
 using namespace std;
 
@@ -64,6 +65,26 @@ llpm::Identity* SpatialCModule::addInternalPort(Type ty,
     return id;
 }
 
+void SpatialCModule::addSubmodule(std::string name, llpm::Module* mod) {
+    if (_submodules.find(name) != _submodules.end()) {
+        throw CodeError("Submodule name already in use!");
+    }
+    _submodules[name] = mod;
+
+    // For each submodule port, automatically add and connect an internal
+    // channel to make it easier for users
+    for (auto ip: mod->inputs()) {
+        auto ipName = name + "." + ip->name();
+        auto id = addInternalPort(Type(ip->type()), ipName);
+        conns()->connect(id->dout(), ip);
+    }
+    for (auto op: mod->outputs()) {
+        auto opName = name + "." + op->name();
+        auto id = addInternalPort(Type(op->type()), opName);
+        conns()->connect(_internalSelects[id]->createInput(), op);
+    }
+}
+
 void SpatialCModule::addStorage(Type ty, std::string name) {
     if (_nameTypes.count(name) > 0) {
         throw new SemanticError("storage " + name +
@@ -77,24 +98,9 @@ void SpatialCModule::addStorage(Type ty, std::string name) {
         _namedStorage[name] = reg;
         reg->name(name);
     } else if (ty.isModule()) {
-        if (_submodules.find(name) != _submodules.end()) {
-            throw CodeError("Submodule name already in use!");
-        }
         auto mod = ty.asModule()->instantiate();
-        _submodules[name] = mod;
-
-        // For each submodule port, automatically add and connect an internal
-        // channel to make it easier for users
-        for (auto ip: mod->inputs()) {
-            auto ipName = name + "." + ip->name();
-            auto id = addInternalPort(Type(ip->type()), ipName);
-            conns()->connect(id->dout(), ip);
-        }
-        for (auto op: mod->outputs()) {
-            auto opName = name + "." + op->name();
-            auto id = addInternalPort(Type(op->type()), opName);
-            conns()->connect(_internalSelects[id]->createInput(), op);
-        }
+        mod->name(name);
+        addSubmodule(name, mod);
     } else if (ty.isArray()) {
         auto arrTy = ty.asArray();
         auto contained = arrTy->contained();
@@ -102,6 +108,14 @@ void SpatialCModule::addStorage(Type ty, std::string name) {
             auto mem = new FiniteArray(contained.llvm(), (unsigned)arrTy->length());
             _namedStorage[name] = mem;
             mem->name(name);
+        } else if (contained.isModule()) {
+            for (unsigned i=0; i<arrTy->length(); i++) {
+                auto mod = contained.asModule()->instantiate();
+                string instName = str(boost::format("%1%[%2%]") % name % i);
+                mod->name(instName);
+                addSubmodule(instName, mod);
+                _submoduleArrays[name].push_back(mod);
+            }
         } else {
             throw CodeError("Array type for " + name + " must be simple or struct type");
         }
@@ -205,54 +219,82 @@ void SpatialCModule::addEvent(Event* ev) {
     _events.push_back(ev);
 }
 
-void SpatialCModule::addConnection(::DefConnect* conn) {
-    auto portA = resolve(conn->channelspecifier_1, true)->asOutput();
-    auto portB = resolve(conn->channelspecifier_2, false)->asInput(); 
+void SpatialCModule::addConnection(Context& ctxt, ::DefConnect* conn) {
+    auto portA = resolve(ctxt, conn->channelspecifier_1, true)->asOutput();
+    auto portB = resolve(ctxt, conn->channelspecifier_2, false)->asInput(); 
     if (portA == nullptr || portB == nullptr) {
         throw CodeError("Could not resolve ports specified", conn->line_number);
     }
     conns()->connect(portA, portB);
 }
 
-llpm::Port* SpatialCModule::resolve(::ChannelSpecifier* cs, bool isOutput) {
+llpm::Port* SpatialCModule::resolve(Context& ctxt, std::string id, bool isOutput) {
+    if (isOutput) {
+        auto inpF = _namedInputs.find(id);
+        if (inpF != _namedInputs.end()) {
+            // Submodule port is driven by one of our inputs
+            return getDriver(inpF->second);
+        } else {
+            // Submodule port is driver by one of our internal channels
+            auto intF = _namedInternal.find(id);
+            if (intF != _namedInternal.end()) {
+                return intF->second->dout();
+            } else {
+                throw CodeError("Could not find driver " + id);
+            }
+        }
+        throw CodeError("Could not find output called " +
+                        id);
+    } else {
+        auto outF = _namedOutputs.find(id);
+        if (outF != _namedOutputs.end()) {
+            // Submodule port is drives one of our outputs 
+            return _outputSelects[outF->second]->createInput();
+        } else {
+            // Submodule port is drives one of our internal channels
+            auto intF = _namedInternal.find(id);
+            if (intF != _namedInternal.end()) {
+                return _internalSelects[intF->second]->createInput();
+            } else {
+                throw CodeError("Could not find sink " + id);
+            }
+        }
+        throw CodeError("Could not find output called " + id);
+    }
+}
+
+std::string SpatialCModule::nameChannelSpecifier(Context& ctxt, ::ChannelSpecifier* cs) {
     auto simple = dynamic_cast<SimpleCS*>(cs);
     if (simple != nullptr) {
-        if (isOutput) {
-            auto inpF = _namedInputs.find(simple->id_);
-            if (inpF != _namedInputs.end()) {
-                // Submodule port is driven by one of our inputs
-                return getDriver(inpF->second);
-            } else {
-                // Submodule port is driver by one of our internal channels
-                auto intF = _namedInternal.find(simple->id_);
-                if (intF != _namedInternal.end()) {
-                    return intF->second->dout();
-                } else {
-                    throw CodeError("Could not find driver " + simple->id_,
-                                    simple->line_number);
-                }
-            }
-            throw CodeError("Could not find output called " +
-                            simple->id_, simple->line_number);
-        } else {
-            auto outF = _namedOutputs.find(simple->id_);
-            if (outF != _namedOutputs.end()) {
-                // Submodule port is drives one of our outputs 
-                return _outputSelects[outF->second]->createInput();
-            } else {
-                // Submodule port is drives one of our internal channels
-                auto intF = _namedInternal.find(simple->id_);
-                if (intF != _namedInternal.end()) {
-                    return _internalSelects[intF->second]->createInput();
-                } else {
-                    throw CodeError("Could not find sink " + simple->id_,
-                                    simple->line_number);
-                }
-            }
-            throw CodeError("Could not find output called " +
-                            simple->id_, simple->line_number);
-        }
+        return simple->id_;
     }
+
+    auto arrayDot = dynamic_cast<ArrayDotCS*>(cs);
+    if (arrayDot != nullptr) {
+        auto idx = Expression::evalExpression(ctxt, arrayDot->exp_);
+        auto c = llpm::EvalConstant(ctxt.conns(), idx.val);
+        if (c == nullptr) {
+            throw CodeError("Array connections at module-level must have "
+                            "compile-time resolvable indexes",
+                            arrayDot->line_number);
+        }
+        if (!c->getType()->isIntegerTy()) {
+            throw CodeError("Array indexes must resolve to integers!",
+                            arrayDot->line_number);
+        }
+        string name = str(boost::format("%1%[%2%].%3%")
+                            % arrayDot->id_1
+                            % c->getUniqueInteger().getLimitedValue()
+                            % arrayDot->id_2);
+        return name;
+    }
+
+    return "";
+}
+llpm::Port* SpatialCModule::resolve(Context& ctxt, ::ChannelSpecifier* cs, bool isOutput) {
+    auto name = nameChannelSpecifier(ctxt, cs);
+    if (name != "")
+        return resolve(ctxt, name, isOutput);
 
     auto dot = dynamic_cast<DotCS*>(cs);
     if (dot != nullptr) {
@@ -299,6 +341,7 @@ llpm::Port* SpatialCModule::resolve(::ChannelSpecifier* cs, bool isOutput) {
 
         return smPort;
     }
+
 
     assert(false);
 }
@@ -368,7 +411,7 @@ bool SpatialCModule::handleModDef(Context& ctxt, ModDef* def) {
 
     auto connection = dynamic_cast<DefConnect*>(def);
     if (connection != nullptr) {
-        addConnection(connection);
+        addConnection(ctxt, connection);
         return true;
     }
 
@@ -381,10 +424,10 @@ bool SpatialCModule::handleModDef(Context& ctxt, ModDef* def) {
         for (int i=from; i<to; i++) {
             auto llvmConst = llvm::ConstantInt::get(intTy, i, true);
             Variable v(Type(intTy),
-                       (new Constant(llvmConst))->dout(),
+                       nullptr,
                        forDef->id_,
                        llvmConst);
-            ctxt.push(v);
+            forCtxt.push(v);
             for (auto def: *forDef->listmoddef_) {
                 handleModDef(forCtxt, def);
             }
@@ -426,10 +469,6 @@ SpatialCModule* SpatialCModuleTemplate::instantiate() {
             if (f != _args.end()) {
                 auto v = f->second;
                 v.name = pname;
-                if (v.op == nullptr) {
-                    assert(v.constant != nullptr);
-                    v.op = (new Constant(v.constant))->dout();
-                }
                 ctxt.push(v);
             } else {
                 auto eqExp = dynamic_cast<EqExp*>(((MetaParam1*)param)->optionaleqexp_);
