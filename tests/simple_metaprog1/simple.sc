@@ -40,8 +40,8 @@ module Memory (
         read_val <- arr[msg];
     }
 
-    for (I: 0 .. N) {
         event(resetAll -> msg) {
+    static_for (I: 0 .. N) {
             arr[I] <- 0;
         }
     }

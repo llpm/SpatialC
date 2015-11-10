@@ -40,6 +40,7 @@ class Event : public llpm::ContainerModule {
     void processStmt(Context&, BlockStmt*);
     void processStmt(Context&, PushStmt*);
     void processStmt(Context&, ReturnStmt*);
+    void processStmt(Context&, StaticForStmt*);
     void scanForOutputs(::Block*);
 
     ValTy evalExpression(const Context&, Exp*);

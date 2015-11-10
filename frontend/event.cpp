@@ -220,6 +220,7 @@ void Event::processStatement(Context& ctxt, Statement* stmt) {
     TYPE_PROCESS(BlockStmt);
     TYPE_PROCESS(PushStmt);
     TYPE_PROCESS(ReturnStmt);
+    TYPE_PROCESS(StaticForStmt);
 
     assert(false && "Did not know how to process statement!");
 }
@@ -313,6 +314,22 @@ void Event::processStmt(Context& ctxt, IfStmt* stmt) {
     }
 
     ctxt.updateFromChildren({&ifCtxt, &elseCtxt});
+}
+
+void Event::processStmt(Context& ctxt, StaticForStmt* stmt) {
+    Context forCtxt(&ctxt);
+    int64_t from = Expression::resolveToInt(ctxt, stmt->exp_1);
+    int64_t to   = Expression::resolveToInt(ctxt, stmt->exp_2);
+    auto intTy = llvm::Type::getInt64Ty(ctxt.llvmCtxt());
+    for (int i=from; i<to; i++) {
+        auto llvmConst = llvm::ConstantInt::get(intTy, i, true);
+        Variable v(Type(intTy),
+                   (new Constant(llvmConst))->dout(),
+                   stmt->id_,
+                   llvmConst);
+        ctxt.push(v);
+        processBlock(forCtxt, stmt->block_);
+    }
 }
 
 void Event::processStmt(Context& ctxt, BlockStmt* stmt) {
