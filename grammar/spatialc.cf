@@ -22,7 +22,8 @@ DefOutput.  ModDef ::= "output" Type Id ";" ;
 DefInternal.ModDef ::= "internal" Type Id ";" ;
 DefEvent.   ModDef ::= "event" EventName "(" [EventParam] ")" Block ;
 DefConnect. ModDef ::= ChannelSpecifier "->" ChannelSpecifier ";" ;
-DefFor.     ModDef ::= "for" "(" Id ":" Exp ".." Exp ")" "{" [ModDef] "}" ;
+DefFor.     ModDef ::= "static_for" "(" Id ":" Exp ".." Exp ")" "{" [ModDef] "}" ;
+DefIf.      ModDef ::= "static_if" "(" Exp ")" "{" [ModDef] "}" ;
 terminator ModDef "" ;
 
 SimpleCS.   ChannelSpecifier ::= Id;
@@ -55,6 +56,8 @@ AssignArrStmt. Statement ::= Id "[" Exp "]" "=" Exp ";" ;
 IfStmt.        Statement ::= "if" "(" Exp ")" Block ElseBlock ;
 BlockStmt.     Statement ::= Block;
 PushStmt.      Statement ::= Id PushSubDest "<-" Exp ";" ;
+StaticForStmt. Statement ::= "static_for" "(" Id ":" Exp ".." Exp ")" Block ;
+StaticIfStmt.  Statement ::= "static_if" "(" Exp ")" Block ;
 ReturnStmt.    Statement ::= "return" Exp ";" ;
 terminator     Statement "" ;
 
