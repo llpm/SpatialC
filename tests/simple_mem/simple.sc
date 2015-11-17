@@ -5,7 +5,7 @@ module Simple {
     input void getReq;
     output int32 getResp;
 
-    int value;
+    reg int value;
 
     event "set" (setReq -> msg) {
         value <- msg;

@@ -7,7 +7,7 @@ struct Write {
 
 module Simple {
     input void rst;
-    Memory!(N=64) mem;
+    mod Memory!(N=64) memVar;
 
     input void resetAll;
 
@@ -15,16 +15,16 @@ module Simple {
     input int read;
     output int read_val;   
 
-    connect resetAll -> mem.resetAll;
-    connect write -> mem.write;
-    connect read -> mem.read;
-    connect mem.read_val -> read_val;
+    connect resetAll -> memVar.resetAll;
+    connect write -> memVar.write;
+    connect read -> memVar.read;
+    connect memVar.read_val -> read_val;
 }
 
 module Memory (
     int N
 ) {
-    int[N] arr;
+    mem int[N] arr;
 
     input void resetAll;
 

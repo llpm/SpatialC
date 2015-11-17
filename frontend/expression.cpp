@@ -161,7 +161,7 @@ ValTy Expression::eval(const Context& ctxt, EArrAcc* exp) {
 }
 
 ValTy Expression::eval(const Context& ctxt, EStructLiteral* exp) {
-    auto ty = ctxt.mod()->getType(&ctxt, exp->id_);
+    auto ty = ctxt.mod()->getType(&ctxt, exp->type_);
     if (!ty.isStruct()) {
         throw CodeError("Type specified for struct constructor is not a struct!",
                         exp->line_number);

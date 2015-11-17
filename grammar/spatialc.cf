@@ -18,7 +18,7 @@ separator MetaParam "," ;
 DefConst.     ModDef ::= "const" Type Id OptionalEqExp ";" ;
 DefReg.       ModDef ::= "reg" Type Id ";" ;
 DefMem.       ModDef ::= "mem" Type Id ";" ;
-DefSubmodule. ModDef ::= Type Id ";" ;
+DefSubmodule. ModDef ::= "mod" Type Id ";" ;
 DefInput.     ModDef ::= "input" Type Id ";" ;
 DefOutput.    ModDef ::= "output" Type Id ";" ;
 DefInternal.  ModDef ::= "internal" Type Id ";" ;
@@ -130,6 +130,8 @@ ConstName. IntOrName ::= Id ;
 Int.       IntOrName ::= Integer ;
 
 TyName.      Type  ::= Id ;
+TyVoid.      Type  ::= "void" ;
+TyType.      Type  ::= "type" ;
 TyNameParams.Type  ::= Id "!" "(" [TemplateArg] ")" ;
 TyArray.     Type  ::= Type "[" IntOrName "]" ;
 TyVector.    Type  ::= Type "<" IntOrName ">" ;

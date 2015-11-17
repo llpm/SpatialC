@@ -9,7 +9,7 @@ module Simple {
     output int33 incrOut;
     output int1  cmpOut;
 
-    int counter;
+    reg int counter;
 
     event "reset" (rst -> msg) {
         counter <- 0;

@@ -62,7 +62,9 @@ private:
     llpm::OutputPort* addOutputPort(Type, std::string name);
     llpm::Identity*   addInternalPort(Type, std::string name);
     void addSubmodule(std::string name, llpm::Module*);
-    void addStorage(Type, std::string name);
+    void addSubmodule(Type, std::string name);
+    void addReg(Type, std::string name);
+    void addMem(Type, std::string name);
     void addEvent(Event*);
     void addConnection(Context& ctxt, ::DefConnect*);
     llpm::Port* resolve(Context& ctxt, std::string, bool isOutput);

@@ -20,7 +20,7 @@ module Simple {
     internal sumPartial sumP;
     output int sum;
 
-    int[25] array;
+    mem int[25] array;
 
     event (wreq -> r) {
         array[r.idx] <- r.val;
@@ -31,14 +31,14 @@ module Simple {
     }
 
     event "sumStart" (sumReq -> r) {
-        sumP <- sumPartial {idx: 0, sum: 0};
+        sumP <- {sumPartial: idx: 0, sum: 0};
     }
 
     event "sum" (sumP -> r) {
         if (r.idx >= 25) {
             sum <- r.sum;
         } else {
-            sumP <- sumPartial {
+            sumP <- {sumPartial:
                 idx: r.idx + 1,
                 sum: r.sum + array[r.idx]
             };

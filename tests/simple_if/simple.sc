@@ -9,7 +9,7 @@ module Simple {
     input void reqCounter;
     output int largeCount;
 
-    int counter;
+    reg int counter;
 
     event "sieve" (valueIn -> msg) {
         if (msg > 50) {
@@ -21,7 +21,7 @@ module Simple {
     }
 
     event "modify" (valueIn -> msg) {
-        int sv = 0;
+        var :int sv = 0;
         if (msg > 25) {
             sv = 1;
         }

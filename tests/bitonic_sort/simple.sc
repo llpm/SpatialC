@@ -24,7 +24,7 @@ struct Write {
 
 module Simple {
 
-    int<4> vec;
+    reg int<4> vec;
 
     input Write write;
     input void sort;
@@ -34,7 +34,7 @@ module Simple {
     output int val;
 
     event (write -> w) atomic {
-        int<4> tmp = vec;
+        var tmp = vec;
         tmp[w.idx] = w.val;
         vec <- tmp;
     }
@@ -43,11 +43,11 @@ module Simple {
         val <- vec[i];
     }
 
-    Switch a;
-    Switch b;
-    Switch c;
-    Switch d;
-    Switch e;
+    mod Switch a;
+    mod Switch b;
+    mod Switch c;
+    mod Switch d;
+    mod Switch e;
 
     connect a.hi -> c.a;
     connect a.lo -> d.a;

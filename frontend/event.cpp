@@ -23,21 +23,33 @@ Event::Event(llpm::Design& design, std::string name, SpatialCModule* mod) :
 }
 
 void Event::buildInitial(Context& ctxt, ListEventParam* list) {
+    unsigned ctr = 0;
     for (auto evParamI: *list) {
-        auto evParam = dynamic_cast<EventParam1*>(evParamI);
-        assert(evParam != nullptr);
+        EventOrCond* orCond = nullptr;
+        string paramName = "";
 
-        string paramName = evParam->id_;
+        auto evParamWN = dynamic_cast<EventParamWithName*>(evParamI);
+        if (evParamWN != nullptr) {
+            orCond = evParamWN->eventorcond_;
+            paramName = evParamWN->id_;
+        }
+        auto evParamNN = dynamic_cast<EventParamNoName*>(evParamI);
+        if (evParamNN != nullptr) {
+            orCond = evParamNN->eventorcond_;
+            paramName = str(boost::format("**inaccessible%1%") % ctr);
+        }
+        assert(orCond != nullptr);
+
         vector<string> inpNames;
         
-        auto simplecs = dynamic_cast<CSEventCond*>(evParam->eventorcond_);
+        auto simplecs = dynamic_cast<CSEventCond*>(orCond);
         if (simplecs != nullptr) {
             // No or condition -- just a simple input
             auto port = _mod->nameChannelSpecifier(ctxt, simplecs->channelspecifier_);
             inpNames.push_back(port);
         }
 
-        auto orList = dynamic_cast<ListEvOr*>(evParam->eventorcond_);
+        auto orList = dynamic_cast<ListEvOr*>(orCond);
         if (orList != nullptr) {
             for (EventOrList* orEv: *orList->listeventorlist_) {
                 auto cs = ((EventOrListChannelSpecifier*)orEv)->channelspecifier_;
@@ -75,6 +87,7 @@ void Event::buildInitial(Context& ctxt, ListEventParam* list) {
         }
         Variable var(types.front(), inpSel->dout(), paramName);
         ctxt.push(var);
+        ctr++;
     }
 
     // Create join for starting control/data token
@@ -166,7 +179,8 @@ llpm::InputPort* Event::getSinkForPush(Context& ctxt, PushStmt* pushStmt) {
             }
             auto c = llpm::EvalConstant(ctxt.conns(), exp.val);
             if (c != nullptr) {
-                // Only one of the outputs gets written to ever, statically determined
+                // Only one of the outputs gets written to ever,
+                //  statically determined
                 auto idx = c->getUniqueInteger().getLimitedValue();
                 if (idx >= smArray.size()) {
                     throw CodeError(
@@ -282,13 +296,26 @@ void Event::processStmt(Context& ctxt, VarStmt* stmt) {
         throw CodeError("Cannot redefine " + stmt->id_,
                         stmt->line_number);
     }
-    Type ty = _mod->getType(&ctxt, stmt->type_);
+    Type ty;
+    ValTy val;
     OutputPort* op;
+
+    auto tySpec = dynamic_cast<TypeSpec*>(stmt->optionaltype_);
+    if (tySpec != nullptr) {
+        ty = _mod->getType(&ctxt, tySpec->type_);
+    }
 
     auto assignment = dynamic_cast<VarAssign*>(stmt->varassignment_);
     if (assignment != nullptr) {
-        op = evalExpression(ctxt, assignment->exp_).val;
+        val = evalExpression(ctxt, assignment->exp_);
+        op = val.val;
+        if (!ty.isValid())
+            ty = val.ty;
     } else {
+        if (!ty.isValid()) {
+            throw CodeError("Variable assignment must have either "
+                            "expression or type specifier");
+        }
         auto c = new llpm::Constant(ty.llvm());
         op = c->dout();
     }

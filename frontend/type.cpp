@@ -163,17 +163,33 @@ Type Type::resolve(const Context* ctxt, ::Type* astType) {
             for (auto argA: *tyNameParam->listtemplatearg_) {
                 auto arg = dynamic_cast<TemplateArg1*>(argA);
                 assert(arg != nullptr);
-                auto exp = Expression::evalExpression(*ctxt, arg->exp_);
-                auto c = llpm::EvalConstant(ctxt->conns(), exp.val);
-                if (c == nullptr) {
-                    throw CodeError("Could not resolve argument to constant",
-                                    arg->line_number);
+
+                auto teConst = dynamic_cast<TEConstExp*>(arg->templateexp_);
+                if (teConst != nullptr) {
+                    auto exp = Expression::evalExpression(*ctxt, teConst->exp_);
+                    auto c = llpm::EvalConstant(ctxt->conns(), exp.val);
+                    if (c == nullptr) {
+                        throw CodeError("Could not resolve argument to constant",
+                                        arg->line_number);
+                    }
+                    Variable v(Type(c->getType()),
+                               nullptr,
+                               arg->id_,
+                               c);
+                    args.insert(make_pair(arg->id_, v));
+                    continue;
                 }
-                Variable v(Type(c->getType()),
-                           nullptr,
-                           arg->id_,
-                           c);
-                args.insert(make_pair(arg->id_, v));
+
+                auto teType = dynamic_cast<TEType*>(arg->templateexp_);
+                if (teType != nullptr) {
+                    auto ty = resolve(ctxt, teType->type_);
+                    Variable v(ty, nullptr, arg->id_, nullptr);
+                    args.insert(make_pair(arg->id_, v));
+                    continue;
+                }
+
+                assert(false && "Cannot evaluate template argument");
+
             }
             return Type(ty.asModule()->args(args));
         }
@@ -196,6 +212,11 @@ Type Type::resolve(const Context* ctxt, ::Type* astType) {
             resolve(ctxt, tyVector->type_),
             resolve(ctxt, tyVector->intorname_));
         return Type(vec);
+    }
+
+    auto tyVoid = dynamic_cast<TyVoid*>(astType);
+    if (tyVoid != nullptr) {
+        return Type(llvm::Type::getVoidTy(ctxt->llvmCtxt()));
     }
 
     assert(false && "I don't recognize this type definition!");

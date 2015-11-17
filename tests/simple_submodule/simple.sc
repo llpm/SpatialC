@@ -7,7 +7,7 @@ module Simple {
     output int byTwo;
 
     output int total;
-    Accumulator acc;
+    mod Accumulator acc;
 
     connect valIn -> acc.value;
     connect rst -> acc.rst;
@@ -20,7 +20,7 @@ module Simple {
 }
 
 module Accumulator {
-    int acc;
+    reg int acc;
 
     input int value;
     output int total;

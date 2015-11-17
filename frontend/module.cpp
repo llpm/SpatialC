@@ -85,43 +85,67 @@ void SpatialCModule::addSubmodule(std::string name, llpm::Module* mod) {
     }
 }
 
-void SpatialCModule::addStorage(Type ty, std::string name) {
+void SpatialCModule::addReg(Type ty, std::string name) {
     if (_nameTypes.count(name) > 0) {
         throw new SemanticError("storage " + name +
                                 " has invalid name. Name already in use");
     }
     _nameTypes.insert(make_pair(name, ty));
 
-    if (ty.isSimple() || ty.isStruct() || ty.isVector()) {
-        // Create a register
-        auto reg = new Register(ty.llvm());
-        _namedStorage[name] = reg;
-        reg->name(name);
-    } else if (ty.isModule()) {
-        auto mod = ty.asModule()->instantiate();
-        mod->name(name);
-        addSubmodule(name, mod);
-    } else if (ty.isArray()) {
-        auto arrTy = ty.asArray();
-        auto contained = arrTy->contained();
-        if (contained.isSimple() || contained.isStruct()) {
-            auto mem = new FiniteArray(contained.llvm(), (unsigned)arrTy->length());
-            _namedStorage[name] = mem;
-            mem->name(name);
-        } else if (contained.isModule()) {
-            for (unsigned i=0; i<arrTy->length(); i++) {
-                auto mod = contained.asModule()->instantiate();
-                string instName = str(boost::format("%1%[%2%]") % name % i);
-                mod->name(instName);
-                addSubmodule(instName, mod);
-                _submoduleArrays[name].push_back(mod);
-            }
-        } else {
-            throw CodeError("Array type for " + name + " must be simple or struct type");
+    if (!ty.isSimple() && !ty.isStruct() && !ty.isVector())
+        throw CodeError("Can only create register of simple, struct, "
+                        "or vector types");
+    // Create a register
+    auto reg = new Register(ty.llvm());
+    _namedStorage[name] = reg;
+    reg->name(name);
+}
+
+void SpatialCModule::addMem(Type ty, std::string name) {
+    if (_nameTypes.count(name) > 0) {
+        throw new SemanticError("storage " + name +
+                                " has invalid name. Name already in use");
+    }
+    _nameTypes.insert(make_pair(name, ty));
+
+    if (!ty.asArray())
+        throw CodeError("Can only create memory from array type");
+
+    auto arrTy = ty.asArray();
+    auto contained = arrTy->contained();
+    if (contained.isSimple() || contained.isStruct()) {
+        auto mem = new FiniteArray(contained.llvm(), (unsigned)arrTy->length());
+        _namedStorage[name] = mem;
+        mem->name(name);
+    } else if (contained.isModule()) {
+        for (unsigned i=0; i<arrTy->length(); i++) {
+            auto mod = contained.asModule()->instantiate();
+            string instName = str(boost::format("%1%[%2%]") % name % i);
+            mod->name(instName);
+            addSubmodule(instName, mod);
+            _submoduleArrays[name].push_back(mod);
         }
     } else {
-        assert(false && "Unsupported storage type");
+        throw CodeError("Array type for " + name + 
+                        " must be simple or struct type");
     }
+}
+
+void SpatialCModule::addSubmodule(Type ty, std::string name) {
+    if (_nameTypes.count(name) > 0) {
+        throw new SemanticError("storage " + name +
+                                " has invalid name. Name already in use");
+    }
+    _nameTypes.insert(make_pair(name, ty));
+
+    if (!ty.isModule()) {
+        throw CodeError("Type specified for submodule is not a module!");
+    }
+
+    // Add submodule
+    auto mod = ty.asModule()->instantiate();
+    mod->name(name);
+    addSubmodule(name, mod);
 }
 
 void SpatialCModule::addEvent(Event* ev) {
@@ -318,12 +342,27 @@ Type SpatialCModule::getType(const Context* ctxt, ::Type* astType) {
 
 
 bool SpatialCModule::handleDeclDef(Context& ctxt, ModDef* def) {
-    auto storage = dynamic_cast<DefStorage*>(def);
-    if (storage != nullptr) {
-        string id = storage->id_;
-        auto ty = getType(&ctxt, storage->type_);
+    auto reg = dynamic_cast<DefReg*>(def);
+    if (reg != nullptr) {
+        string id = reg->id_;
+        auto ty = getType(&ctxt, reg->type_);
+        addReg(ty, id);
+        return true;
+    }
 
-        addStorage(ty, id);
+    auto mem = dynamic_cast<DefMem*>(def);
+    if (mem!= nullptr) {
+        string id = mem->id_;
+        auto ty = getType(&ctxt, mem->type_);
+        addMem(ty, id);
+        return true;
+    }
+
+    auto sub = dynamic_cast<DefSubmodule*>(def);
+    if (sub != nullptr) {
+        string id = sub->id_;
+        auto ty = getType(&ctxt, sub->type_);
+        addSubmodule(ty, id);
         return true;
     }
 
