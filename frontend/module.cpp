@@ -117,14 +117,7 @@ void SpatialCModule::addMem(Type ty, std::string name) {
         auto mem = new FiniteArray(contained.llvm(), (unsigned)arrTy->length());
         _namedStorage[name] = mem;
         mem->name(name);
-    } else if (contained.isModule()) {
-        for (unsigned i=0; i<arrTy->length(); i++) {
-            auto mod = contained.asModule()->instantiate();
-            string instName = str(boost::format("%1%[%2%]") % name % i);
-            mod->name(instName);
-            addSubmodule(instName, mod);
-            _submoduleArrays[name].push_back(mod);
-        }
+
     } else {
         throw CodeError("Array type for " + name + 
                         " must be simple or struct type");
@@ -138,14 +131,29 @@ void SpatialCModule::addSubmodule(Type ty, std::string name) {
     }
     _nameTypes.insert(make_pair(name, ty));
 
-    if (!ty.isModule()) {
-        throw CodeError("Type specified for submodule is not a module!");
-    }
+    if (ty.isArray()) {
+        auto arrTy = ty.asArray();
+        auto contained = arrTy->contained();
+        if (!contained.isModule()) {
+            throw CodeError("Type specified for submodule is not a module!");
+        }
+        for (unsigned i=0; i<arrTy->length(); i++) {
+            auto mod = contained.asModule()->instantiate();
+            string instName = str(boost::format("%1%[%2%]") % name % i);
+            mod->name(instName);
+            addSubmodule(instName, mod);
+            _submoduleArrays[name].push_back(mod);
+        }
+    } else {
+        if (!ty.isModule()) {
+            throw CodeError("Type specified for submodule is not a module!");
+        }
 
-    // Add submodule
-    auto mod = ty.asModule()->instantiate();
-    mod->name(name);
-    addSubmodule(name, mod);
+        // Add submodule
+        auto mod = ty.asModule()->instantiate();
+        mod->name(name);
+        addSubmodule(name, mod);
+    }
 }
 
 void SpatialCModule::addEvent(Event* ev) {
