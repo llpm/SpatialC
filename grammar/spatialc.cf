@@ -15,15 +15,19 @@ NoEqExp. OptionalEqExp ::= ;
 rules MetaParam ::= Type Id OptionalEqExp ;
 separator MetaParam "," ;
 
-DefConst.   ModDef ::= "const" Type Id OptionalEqExp ";" ;
-DefStorage. ModDef ::= Type Id ";" ;
-DefInput.   ModDef ::= "input" Type Id ";" ;
-DefOutput.  ModDef ::= "output" Type Id ";" ;
-DefInternal.ModDef ::= "internal" Type Id ";" ;
-DefEvent.   ModDef ::= "event" EventName "(" [EventParam] ")" Block ;
-DefConnect. ModDef ::= "connect" ChannelSpecifier "->" ChannelSpecifier ";" ;
-DefFor.     ModDef ::= "static_for" "(" Id ":" Exp ".." Exp ")" "{" [ModDef] "}" ;
-DefIf.      ModDef ::= "static_if" "(" Exp ")" "{" [ModDef] "}" ;
+DefConst.     ModDef ::= "const" Type Id OptionalEqExp ";" ;
+DefReg.       ModDef ::= "reg" Type Id ";" ;
+DefMem.       ModDef ::= "mem" Type Id ";" ;
+DefSubmodule. ModDef ::= Type Id ";" ;
+DefInput.     ModDef ::= "input" Type Id ";" ;
+DefOutput.    ModDef ::= "output" Type Id ";" ;
+DefInternal.  ModDef ::= "internal" Type Id ";" ;
+DefEvent.     ModDef ::= "event" EventName "(" [EventParam] ")" Block ;
+DefConnect.   ModDef ::= "connect" ChannelSpecifier "->" ChannelSpecifier ";" ;
+DefFor.       ModDef ::=
+        "static_for" "(" Id ":" Exp ".." Exp ")" "{" [ModDef] "}" ;
+DefIf.        ModDef ::=
+        "static_if" "(" Exp ")" "{" [ModDef] "}" ;
 terminator ModDef "" ;
 
 SimpleCS.   ChannelSpecifier ::= Id;
@@ -33,7 +37,8 @@ ArrayDotCS. ChannelSpecifier ::= Id "[" Exp "]" "." Id ;
 NoEvName.   EventName ::= ;
 EvName.     EventName ::= "\"" Id "\"" ;
 
-rules EventParam ::= EventOrCond "->" Id ;
+EventParamWithName. EventParam ::= EventOrCond "->" Id ;
+EventParamNoName.   EventParam ::= EventOrCond "->" "*" ;
 separator EventParam "," ;
 
 CSEventCond.EventOrCond ::= ChannelSpecifier;
@@ -49,7 +54,10 @@ terminator StructDef "" ;
 rules FuncParam ::= Type Id ;
 separator FuncParam "," ;
 
-VarStmt.       Statement ::= Type Id VarAssignment ;
+NoType.   OptionalType ::= ;
+TypeSpec. OptionalType ::= ":" Type ;
+
+VarStmt.       Statement ::= "var" OptionalType Id VarAssignment ;
 AssignStmt.    Statement ::= Id "=" Exp ";" ;
 AssignArrStmt. Statement ::= Id "[" Exp "]" "=" Exp ";" ;
 IfStmt.        Statement ::= "if" "(" Exp ")" Block ElseBlock ;
@@ -58,6 +66,7 @@ PushStmt.      Statement ::= Id PushSubDest "<-" Exp ";" ;
 StaticForStmt. Statement ::= "static_for" "(" Id ":" Exp ".." Exp ")" Block ;
 StaticIfStmt.  Statement ::= "static_if" "(" Exp ")" Block ;
 ReturnStmt.    Statement ::= "return" Exp ";" ;
+WaitFor.       Statement ::= "wait_until" Exp ";" ;
 terminator     Statement "" ;
 
 PushSubreg.  PushSubDest ::= "." Id ;
@@ -73,22 +82,24 @@ rules Block ::= [BlockAttr] "{" [Statement] "}" ;
 rules BlockAttr ::= "atomic" | "xact" ;
 terminator BlockAttr "";
 
+ElseIf.     ElseBlock ::= "elif" "(" Exp ")" Block ElseBlock ;
 Else.       ElseBlock ::= "else" Block ;
 NoElse.     ElseBlock ::= ;
 
-ETrue.   Exp15  ::= "true" ;
-EFalse.  Exp15  ::= "false" ;
-EInt.    Exp15  ::= Integer ;
-EDouble. Exp15  ::= Double ;
-EString. Exp15  ::= String ;
-EId.     Exp15  ::= Id ; 
 
-EApp.    Exp15  ::= Exp15 "(" [Exp] ")" ;
+EVoid.   Exp15 ::= "void" ;
+ETrue.   Exp15 ::= "true" ;
+EFalse.  Exp15 ::= "false" ;
+EInt.    Exp15 ::= Integer ;
+EDouble. Exp15 ::= Double ;
+EString. Exp15 ::= String ;
+EStructLiteral. Exp15 ::= "{" Type ":" [StructLiteralField] "}" ;
+EVectorLiteral. Exp15 ::= "[" [Exp] "]" ;
+EId.     Exp15 ::= Id ;
+
 EArrAcc. Exp15  ::= Exp15 "[" Exp "]" ;
+ESlice.  Exp15  ::= Exp15 "[" Exp ".." Exp "]" ;
 EDot.    Exp15  ::= Exp15  "." Id ;
-
-EStructLiteral. Exp14 ::= Id "{" [StructLiteralField] "}" ;
-EVectorLiteral. Exp14 ::= "[" [Exp] "]" ;
 
 ETimes.  Exp12  ::= Exp12 "*"  Exp13 ;
 EDiv.    Exp12  ::= Exp12 "/"  Exp13 ;
@@ -123,7 +134,10 @@ TyNameParams.Type  ::= Id "!" "(" [TemplateArg] ")" ;
 TyArray.     Type  ::= Type "[" IntOrName "]" ;
 TyVector.    Type  ::= Type "<" IntOrName ">" ;
 
-rules TemplateArg ::= Id "=" Exp ; 
+TEType.     TemplateExp ::= "type" Type ;
+TEConstExp. TemplateExp ::= Exp ;
+
+rules TemplateArg ::= Id "=" TemplateExp ; 
 separator TemplateArg "," ;
 
 comment "//" ;
