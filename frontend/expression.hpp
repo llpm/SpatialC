@@ -11,6 +11,7 @@ class Context;
 struct Expression {
     static ValTy evalExpression(const Context& ctxt, Exp* exp);
 
+    static ValTy eval(const Context&, EVoid*);
     static ValTy eval(const Context&, ETrue*);
     static ValTy eval(const Context&, EFalse*);
     static ValTy eval(const Context&, EInt* exp);

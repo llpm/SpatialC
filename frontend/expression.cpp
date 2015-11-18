@@ -18,6 +18,9 @@ using namespace llpm;
 
 namespace spatialc {
 
+ValTy Expression::eval(const Context& ctxt, EVoid*) {
+    return llpm::Constant::getVoid(ctxt.design)->dout();
+}
 ValTy Expression::eval(const Context& ctxt, ETrue*) {
     return (new llpm::Constant(
                 llvm::Constant::getIntegerValue(
@@ -393,6 +396,7 @@ ValTy Expression::evalExpression(const Context& ctxt, Exp* exp) {
         if (tyExp != nullptr) return Expression::eval(ctxt, tyExp); \
     }
 
+    TYPE_EXP_PROCESS(EVoid);
     TYPE_EXP_PROCESS(ETrue);
     TYPE_EXP_PROCESS(EFalse);
     TYPE_EXP_PROCESS(EInt);
