@@ -28,7 +28,6 @@ Context::Context(Context* parent, Package* pkg) :
     _ev(nullptr),
     controlSignal(nullptr),
     clause(nullptr),
-    totalBinaryClause(nullptr),
     readController(nullptr),
     writeControl(nullptr),
     xact(false),
@@ -46,7 +45,6 @@ Context::Context(Context* parent, llpm::OutputPort* clause, uint32_t idx) :
     controlSignal(parent->controlSignal),
     clause(clause),
     idx(idx),
-    totalBinaryClause(nullptr),
     readController(nullptr),
     writeControl(nullptr),
     xact(false),
@@ -63,7 +61,6 @@ Context::Context(Context* parent, Event* ev, llpm::OutputPort* cntrl) :
     _ev(ev),
     controlSignal(cntrl),
     clause(nullptr),
-    totalBinaryClause(nullptr),
     readController(nullptr),
     writeControl(nullptr),
     xact(false),
@@ -79,7 +76,6 @@ Context::Context(Context* parent, SpatialCModule* mod) :
     _ev(nullptr),
     controlSignal(nullptr),
     clause(nullptr),
-    totalBinaryClause(nullptr),
     readController(nullptr),
     writeControl(nullptr),
     xact(false),
@@ -217,9 +213,10 @@ void Context::updateFromChildren(std::vector<Context*> children) {
 // Build a clause which outputs true/false, true when this context's clause
 // and all parent's clauses are true
 llpm::OutputPort* Context::buildTotalBinaryClause(llpm::ConnectionDB* conns) {
-    if (totalBinaryClause != nullptr) {
+    auto cacheF = _totalBinaryClauseCache.find(conns);
+    if (cacheF != _totalBinaryClauseCache.end()) {
         // Use a cached copy if available
-        return totalBinaryClause;
+        return cacheF->second;
     }
     OutputPort* parentbc = nullptr;
     if (parent != nullptr)
@@ -236,8 +233,9 @@ llpm::OutputPort* Context::buildTotalBinaryClause(llpm::ConnectionDB* conns) {
             auto wait = new Wait(trueConst->dout()->type());
             conns->connect(trueConst->dout(), wait->din());
             wait->newControl(conns, controlSignal);
-            totalBinaryClause = wait->dout();
-            return totalBinaryClause;
+            auto tbc = wait->dout();
+            _totalBinaryClauseCache.insert(make_pair(conns, tbc));
+            return tbc;
         }
     }
 
@@ -257,8 +255,9 @@ llpm::OutputPort* Context::buildTotalBinaryClause(llpm::ConnectionDB* conns) {
     conns->connect(andLogic->din()->join(*conns)->din(0), parentbc);
     conns->connect(andLogic->din()->join(*conns)->din(1), localEq->dout());
 
-    totalBinaryClause = andLogic->dout();
-    return totalBinaryClause;
+    auto tbc = andLogic->dout();
+    _totalBinaryClauseCache.insert(make_pair(conns, tbc));
+    return tbc;
 }
 
 const std::vector<llvm::Type*> Context::llvm() const {

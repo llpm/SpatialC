@@ -90,14 +90,15 @@ void Event::buildInitial(Context& ctxt, ListEventParam* list) {
         ctr++;
     }
 
+    auto conns = ctxt.conns();
     // Create join for starting control/data token
-    auto cdToken = ctxt.createJoinSplit(conns())->dout();
+    auto cdToken = ctxt.createJoinSplit(conns)->dout();
 
     // Create pure control token
     auto controlWait = new Wait(llvm::Type::getVoidTy(ctxt.llvmCtxt()));
-    controlWait->newControl(conns(), cdToken);
+    controlWait->newControl(conns, cdToken);
     auto controlToken = new Constant(llvm::Type::getVoidTy(ctxt.llvmCtxt()));
-    conns()->connect(controlToken->dout(), controlWait->din());
+    conns->connect(controlToken->dout(), controlWait->din());
     ctxt.controlSignal = controlWait->dout();
 }
 
@@ -194,6 +195,15 @@ llpm::InputPort* Event::getSinkForPush(Context& ctxt, PushStmt* pushStmt) {
                         boost::format("%1%[%2%].%3%")
                             % pushStmt->id_
                             % idx
+                            % subreg));
+                assert(outp != nullptr);
+                return outp;
+            } else if (smArray.size() == 1) {
+                // The array is size 1 anyway, so defacto static select
+                 auto outp = getSinkForSimple(str(
+                        boost::format("%1%[%2%].%3%")
+                            % pushStmt->id_
+                            % 0
                             % subreg));
                 assert(outp != nullptr);
                 return outp;
@@ -449,7 +459,7 @@ void Event::processBlock(Context& ctxt, ::Block* blockSorta) {
         auto wait = new Wait(ctxt.controlSignal->type());
         conns()->connect(wait->din(), ctxt.controlSignal);
         ctxt.controlSignal = wait->dout();
-        ctxt.totalBinaryClause = nullptr;
+        ctxt.clearTBCCache();
         auto once = Once::getVoid(mod()->design());
         atomicWaitControlSelect = new Select(0, once->dout()->type());
         wait->newControl(conns(), atomicWaitControlSelect->dout());
@@ -500,9 +510,9 @@ void Event::processBlock(Context& ctxt, ::Block* blockSorta) {
         for (auto write: ctxt.writeAcks) {
             writeWait->newControl(conns(), write);
         }
-        if (ctxt.parent != nullptr) {
+        if (ctxt.parent != nullptr && ctxt.parent->ev() != nullptr) {
             ctxt.parent->controlSignal = writeWait->dout();
-            ctxt.parent->totalBinaryClause = nullptr;
+            ctxt.parent->clearTBCCache();
         }
 
         // Note: I'm assuming ctxt is unused after this call and will be
@@ -511,12 +521,13 @@ void Event::processBlock(Context& ctxt, ::Block* blockSorta) {
 }
 
 void Event::processStmt(Context& ctxt, PushStmt* stmt) {
+    auto conns = ctxt.conns();
     auto outName = stmt->id_;
     auto val = evalExpression(ctxt, stmt->exp_).val;
     auto rtr = new Router(2, val->type());
-    connect(val, rtr->din()->join(*conns(), 1));
-    connect(ctxt.buildTotalBinaryClause(conns()),
-            rtr->din()->join(*conns(), 0));
+    connect(val, rtr->din()->join(*conns, 1));
+    connect(ctxt.buildTotalBinaryClause(conns),
+            rtr->din()->join(*conns, 0));
     auto ns = new NullSink(rtr->dout(0)->type());
     connect(rtr->dout(0), ns->din());
     val = rtr->dout(1);
@@ -524,8 +535,8 @@ void Event::processStmt(Context& ctxt, PushStmt* stmt) {
     // If in transaction, wait for reads to complete
     if (ctxt.inXact()) {
         auto readWait = new Wait(val->type());
-        readWait->newControl(conns(), ctxt.findWriteControl());
-        conns()->connect(val, readWait->din());
+        readWait->newControl(conns, ctxt.findWriteControl());
+        conns->connect(val, readWait->din());
         val = readWait->dout();
     }
 
@@ -575,7 +586,7 @@ void Event::processStmt(Context& ctxt, PushStmt* stmt) {
 
         ev->_memWriteConnections[outName].push_back(iface);
         auto sink = new NullSink(iface.second->type());
-        conns()->connect(inId->dout(), sink->din());
+        conns->connect(inId->dout(), sink->din());
         ctxt.pushWriteDone(inId->dout());
         return;
     }

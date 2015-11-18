@@ -51,7 +51,7 @@ public:
     llpm::OutputPort* controlSignal;
     llpm::OutputPort* clause;
     uint32_t    idx;
-    llpm::OutputPort* totalBinaryClause;
+    std::map<llpm::ConnectionDB*, llpm::OutputPort*> _totalBinaryClauseCache;
     std::vector<Variable> vars;
     llpm::Wait*       readController;
     llpm::OutputPort* writeControl;
@@ -67,6 +67,10 @@ public:
 
     llvm::LLVMContext& llvmCtxt() const {
         return design.context();
+    }
+
+    void clearTBCCache() {
+        _totalBinaryClauseCache.clear();
     }
 
     Package* pkg() const {
