@@ -136,6 +136,13 @@ Type Type::resolve(const Context* ctxt, std::string typeName) {
             llvm::Type::getIntNTy(ctxt->llvmCtxt(), width));
     }
 
+    // check context for metaprogrammed type
+    auto var = ctxt->find(typeName);
+    if (var != nullptr) {
+        if (var->op == nullptr && var->constant == nullptr)
+            return var->ty;
+    }
+
     // Look up types defined in the package
     Type ty;
     if (ctxt->pkg()->resolveNamedType(typeName, ty))
@@ -217,6 +224,11 @@ Type Type::resolve(const Context* ctxt, ::Type* astType) {
     auto tyVoid = dynamic_cast<TyVoid*>(astType);
     if (tyVoid != nullptr) {
         return Type(llvm::Type::getVoidTy(ctxt->llvmCtxt()));
+    }
+
+    auto tyType = dynamic_cast<TyType*>(astType);
+    if (tyType != nullptr) {
+        return Type::type();
     }
 
     assert(false && "I don't recognize this type definition!");

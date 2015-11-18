@@ -35,6 +35,7 @@ class Type {
     Array*        _array;
     Vector*       _vector;
     SpatialCModuleTemplate* _module;
+    bool          _type;
 
 public:
     Type(llvm::Type* simple) :
@@ -42,7 +43,8 @@ public:
         _struct(nullptr),
         _array(nullptr),
         _vector(nullptr),
-        _module(nullptr)
+        _module(nullptr),
+        _type(false)
     { }
 
     Type(Struct* strct) :
@@ -50,7 +52,8 @@ public:
         _struct(strct),
         _array(nullptr),
         _vector(nullptr),
-        _module(nullptr)
+        _module(nullptr),
+        _type(false)
     { }
 
     Type(Array* arr) :
@@ -58,7 +61,8 @@ public:
         _struct(nullptr),
         _array(arr),
         _vector(nullptr),
-        _module(nullptr)
+        _module(nullptr),
+        _type(false)
     { }
 
     Type(Vector* vec) :
@@ -66,7 +70,8 @@ public:
         _struct(nullptr),
         _array(nullptr),
         _vector(vec),
-        _module(nullptr)
+        _module(nullptr),
+        _type(false)
     { }
 
     Type(SpatialCModuleTemplate* mod) :
@@ -74,7 +79,8 @@ public:
         _struct(nullptr),
         _array(nullptr),
         _vector(nullptr),
-        _module(mod)
+        _module(mod),
+        _type(false)
     { }
 
     // Invalid type constructor
@@ -83,8 +89,16 @@ public:
         _struct(nullptr),
         _array(nullptr),
         _vector(nullptr),
-        _module(nullptr)
+        _module(nullptr),
+        _type(false)
     { }
+
+    // Instantiate the "type" type -- a meta type!
+    static Type type() {
+        Type t;
+        t._type = true;
+        return t;
+    }
 
     ~Type() { }
     
