@@ -37,6 +37,7 @@ int main() {
             s->din_nonblock(din);
             q.push_back(din.arg0);
             i++;
+            // printf("-> %u\n", din.arg0);
         } else if ((rand() & 0xFF) == 0 &&
                    s->dout_nonblock(&dout)) {
             int correct = q.front();

@@ -38,6 +38,7 @@ class Event : public llpm::ContainerModule {
     void processStmt(Context&, IfStmt*);
     void processStmt(Context&, BlockStmt*);
     void processStmt(Context&, PushStmt*);
+    void processStmt(Context&, WaitUntilStmt*);
     void processStmt(Context&, ReturnStmt*);
     void processStmt(Context&, StaticForStmt*);
 

@@ -22,7 +22,8 @@ module Buffer (
     }
 
     event "din" (din -> data) atomic {
-        //wait_until (start != (end - 1));
+        wait_until ( (end != 0 && start != (end - 1)) ||
+                     (end == 0 && start != (Size - 1)) );
 
         var start = start;
         var startNext = start + 1;
@@ -41,9 +42,9 @@ module Buffer (
             trueStart = trueStart + Size;
         }
 
-        if (trueStart - end >= Threshold) {
+        //if (trueStart - end >= Threshold) {
             intFlush <- void;
-        }
+        //}
     }
 
     event "flush" ((flush | intFlush) -> *) xact atomic {

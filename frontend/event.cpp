@@ -298,6 +298,7 @@ void Event::processStatement(Context& ctxt, Statement* stmt) {
     TYPE_PROCESS(PushStmt);
     TYPE_PROCESS(ReturnStmt);
     TYPE_PROCESS(StaticForStmt);
+    TYPE_PROCESS(WaitUntilStmt);
 
     assert(false && "Did not know how to process statement!");
 }
@@ -589,6 +590,33 @@ void Event::processStmt(Context& ctxt, PushStmt* stmt) {
     }
 
     throw CodeError("Could not find output!", stmt->line_number);
+}
+
+void Event::processStmt(Context& ctxt, WaitUntilStmt* stmt) {
+    if (!ctxt.inAtomic()) {
+        throw CodeError("wait_until only valid in atomic blocks!",
+                        stmt->line_number);
+    }
+
+    auto voidTy = llvm::Type::getVoidTy(design().context());
+    auto exprEvalControlSel = new Select(2, voidTy);
+    assert(ctxt.controlSignal != nullptr);
+    conns()->connect(ctxt.controlSignal,
+                     exprEvalControlSel->din(0));
+    Context waitCtxt(&ctxt, this, exprEvalControlSel->dout());
+    auto exp = evalExpression(waitCtxt, stmt->exp_);
+
+    auto evalRouter = new Router(2, voidTy);
+    auto voidConst = Constant::getVoid(design());
+    auto routerIdxIn = evalRouter->din()->join(*conns())->din(0);
+    exp = Expression::truncOrExtend(waitCtxt, exp, Type(routerIdxIn->type()));
+    conns()->connect(exp.val, routerIdxIn);
+    conns()->connect(voidConst->dout(),
+                     evalRouter->din()->join(*conns())->din(1));
+    conns()->connect(evalRouter->dout(0), // False ("try again") feedback
+                     exprEvalControlSel->din(1));
+    ctxt.controlSignal = evalRouter->dout(1); // Wait until exp true
+    ctxt.clearTBCCache();
 }
 
 void Event::processStmt(Context& ctxt, ReturnStmt* stmt) {
