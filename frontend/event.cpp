@@ -7,6 +7,7 @@
 #include <libraries/core/std_library.hpp>
 #include <libraries/ext/mux_route.hpp>
 #include <libraries/util/types.hpp>
+#include <libraries/synchronization/semaphore.hpp>
 
 #include <analysis/constant.hpp>
 
@@ -432,7 +433,7 @@ void Event::processBlock(Context& ctxt, ::Block* blockSorta) {
 
     auto xact = false;
     auto atomic = false;
-    Select* atomicWaitControlSelect = nullptr;
+    Semaphore* atomicSema = nullptr;
 
     for (auto attr: *block->listblockattr_) {
         auto xactBA = dynamic_cast<BlockAttr_xact*>(attr);
@@ -456,14 +457,10 @@ void Event::processBlock(Context& ctxt, ::Block* blockSorta) {
         }
 
         // Built a gated entry
-        auto wait = new Wait(ctxt.controlSignal->type());
-        conns()->connect(wait->din(), ctxt.controlSignal);
-        ctxt.controlSignal = wait->dout();
+        atomicSema = new Semaphore(ctxt.design);
+        conns()->connect(atomicSema->wait()->din(), ctxt.controlSignal);
+        ctxt.controlSignal = atomicSema->wait()->dout();
         ctxt.clearTBCCache();
-        auto once = Once::getVoid(mod()->design());
-        atomicWaitControlSelect = new Select(0, once->dout()->type());
-        wait->newControl(conns(), atomicWaitControlSelect->dout());
-        conns()->connect(once->dout(), atomicWaitControlSelect->createInput());
         ctxt.atomic = true;
     }
 
@@ -489,10 +486,10 @@ void Event::processBlock(Context& ctxt, ::Block* blockSorta) {
     }
 
     if (atomic) {
-        auto nextAllowedWait = new Wait(atomicWaitControlSelect->dout()->type());
+        auto nextAllowedWait = new Wait(atomicSema->wait()->dout()->type());
         conns()->connect(
             nextAllowedWait->dout(),
-            atomicWaitControlSelect->createInput());
+            atomicSema->signal());
         auto tokenConst = Constant::getVoid(_mod->design());
         conns()->connect(tokenConst->dout(), nextAllowedWait->din());
 
