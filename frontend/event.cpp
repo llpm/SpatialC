@@ -284,6 +284,30 @@ Event* Event::create(Context* parentCtxt,
     return ev;
 }
 
+Event* Event::create(Context* parentCtxt,
+                     DefInit* eventAst,
+                     SpatialCModule* mod) {
+    // Get event name
+    string evName = "";
+    auto evNameObj = dynamic_cast<EvName*>(eventAst->eventname_);
+    if (evNameObj != nullptr) {
+        evName = evNameObj->id_;
+    }
+
+    Event* ev = new Event(parentCtxt->design, evName, mod);
+
+    // Convert the event list to something usable
+    Context ctxt(parentCtxt, ev, nullptr);
+    auto initOnce = new Once(
+                llvm::Type::getVoidTy(ev->design().context()));
+    ctxt.controlSignal = initOnce->dout();
+
+    // Find all the outputs this event uses
+    ev->processBlock(ctxt, eventAst->block_);
+
+    return ev;
+}
+
 void Event::processStatement(Context& ctxt, Statement* stmt) {
     #define TYPE_PROCESS(TY) { \
         auto tyStmt = dynamic_cast<TY*>(stmt); \

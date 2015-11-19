@@ -418,6 +418,13 @@ bool SpatialCModule::handleModDef(Context& ctxt, ModDef* def) {
         return true;
     }
 
+    auto init = dynamic_cast<DefInit*>(def);
+    if (init != nullptr) {
+        auto ev = Event::create(&ctxt, init, this);
+        addEvent(ev);
+        return true;
+    }
+
     auto connection = dynamic_cast<DefConnect*>(def);
     if (connection != nullptr) {
         addConnection(ctxt, connection);

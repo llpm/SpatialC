@@ -1,18 +1,17 @@
 package simple;
 
 module Simple {
-    input void goFib;
     internal void fibControl;
     reg uint64 fib1;
     reg uint64 fib2;
     output uint64 fibSeq;
 
-    event "fibStart" (goFib -> msg) {
+    init "fibStart" {
         xact {
             fib1 <- 0;
             fib2 <- 1;
         }
-        fibControl <- msg;
+        fibControl <- void;
     }
 
     event "fibber" (fibControl -> msg) {

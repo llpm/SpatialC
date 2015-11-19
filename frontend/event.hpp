@@ -51,6 +51,10 @@ public:
                          DefEvent* eventAst,
                          SpatialCModule* module);
 
+    static Event* create(Context* ctxt,
+                         DefInit* eventAst,
+                         SpatialCModule* module);
+
     DEF_GET_NP(inpConnections);
     DEF_GET_NP(ioConnections);
     DEF_GET_NP(memWriteConnections);

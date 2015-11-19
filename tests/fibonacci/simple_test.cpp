@@ -10,8 +10,6 @@ int main() {
     s->reset();
     uint64_t start = s->cycles();
 
-    s->goFib();
-
     for (int32_t i=0; i<25; i++) {
         uint64_t j;
         s->fibSeq(&j);

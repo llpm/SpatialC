@@ -23,6 +23,7 @@ DefInput.     ModDef ::= "input" Type Id ";" ;
 DefOutput.    ModDef ::= "output" Type Id ";" ;
 DefInternal.  ModDef ::= "internal" Type Id ";" ;
 DefEvent.     ModDef ::= "event" EventName "(" [EventParam] ")" Block ;
+DefInit.      ModDef ::= "init" EventName Block ;
 DefConnect.   ModDef ::= "connect" ChannelSpecifier "->" ChannelSpecifier ";" ;
 DefFor.       ModDef ::=
         "static_for" "(" Id ":" Exp ".." Exp ")" "{" [ModDef] "}" ;

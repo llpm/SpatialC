@@ -13,19 +13,15 @@ using namespace std;
 int main() {
     Simple* s = new Simple();
     // s->trace("debug.vcd");
-    s->reset();
-
     start_debug(fopen("debug.txt", "w"));
+    s->reset();
+    s->run(5);
 
     unsigned NUM = 50;
 
     // srand(time(NULL));
     unsigned outCounter = 0;
-
     deque<int> q;
-
-    s->rst();
-    s->run();
 
     uint64_t start = s->cycles();
     for (int32_t i=0; i<NUM; ) {

@@ -10,13 +10,12 @@ module Buffer (
     reg uint start;
     reg uint end;
 
-    input void rst;
     input Type din;
     output Type dout;
     input void flush;
     internal void intFlush;
 
-    event (rst -> *) {
+    init {
         start <- 0;
         end <- 0;
     }
@@ -63,13 +62,11 @@ module Buffer (
 
 module Simple {
     input int din;
-    input void rst;
     input void flush;
     output int dout;
 
     mod Buffer!(Type=type int, Size=8, Threshold=4) buffer;
 
-    connect rst -> buffer.rst;
     connect din -> buffer.din;
     connect buffer.dout -> dout;
     connect flush -> buffer.flush;
