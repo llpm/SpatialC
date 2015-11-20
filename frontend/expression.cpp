@@ -82,12 +82,11 @@ ValTy Expression::evalId(const Context& ctxt, std::string id) {
         assert(ev != nullptr);
         auto inId = new Identity(mem->read()->respType());
         std::pair<OutputPort*, InputPort*> iface
-            (ctxt.ev()->addOutputPort(ctxt.controlSignal),
+            (ctxt.ev()->addOutputPort(ctxt.findControlSignal()),
              ctxt.ev()->addInputPort(inId->din()));
 
         ev->_memReadConnections[id].push_back(iface);
-        if (ctxt.readController != nullptr)
-            ctxt.readController->newControl(ctxt.conns(), inId->dout());
+        ctxt.pushReadDone(inId->dout());
         return ValTy(inId->dout(), tyF->second);
     }
 
@@ -131,7 +130,7 @@ ValTy Expression::eval(const Context& ctxt, EArrAcc* exp) {
 
         auto readWait = new Wait(idx->type());
         ctxt.conns()->connect(idx, readWait->din());
-        readWait->newControl(ctxt.conns(), ctxt.controlSignal);
+        readWait->newControl(ctxt.conns(), ctxt.findControlSignal());
         idx = readWait->dout();
 
         auto ev = ctxt.ev();
@@ -142,8 +141,7 @@ ValTy Expression::eval(const Context& ctxt, EArrAcc* exp) {
              ctxt.ev()->addInputPort(inId->din()));
 
         ev->_memReadConnections[id].push_back(iface);
-        if (ctxt.readController != nullptr)
-            ctxt.readController->newControl(ctxt.conns(), inId->dout());
+        ctxt.pushReadDone(inId->dout());
         return ValTy(inId->dout(), tyF->second.asArray()->contained());
     } else if (val.ty.isVector()) {
 

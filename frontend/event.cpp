@@ -101,7 +101,7 @@ void Event::buildInitial(Context& ctxt, ListEventParam* list) {
     controlWait->newControl(conns, cdToken);
     auto controlToken = new Constant(llvm::Type::getVoidTy(ctxt.llvmCtxt()));
     conns->connect(controlToken->dout(), controlWait->din());
-    ctxt.controlSignal = controlWait->dout();
+    ctxt.pushControlSignal(controlWait->dout());
 }
 
 llpm::InputPort* Event::getSinkForSimple(std::string outName) {
@@ -274,7 +274,7 @@ Event* Event::create(Context* parentCtxt,
     // Convert the event list to something usable
     Context ctxt(parentCtxt, ev, nullptr);
     ev->buildInitial(ctxt, eventAst->listeventparam_);
-    for (auto v: ctxt.vars) {
+    for (auto v: ctxt.vars()) {
         auto ns = new NullSink(v.op->type());
         ev->connect(v.op, ns->din());
     }
@@ -293,6 +293,8 @@ Event* Event::create(Context* parentCtxt,
     auto evNameObj = dynamic_cast<EvName*>(eventAst->eventname_);
     if (evNameObj != nullptr) {
         evName = evNameObj->id_;
+    } else {
+        evName = "init";
     }
 
     Event* ev = new Event(parentCtxt->design, evName, mod);
@@ -301,7 +303,7 @@ Event* Event::create(Context* parentCtxt,
     Context ctxt(parentCtxt, ev, nullptr);
     auto initOnce = new Once(
                 llvm::Type::getVoidTy(ev->design().context()));
-    ctxt.controlSignal = initOnce->dout();
+    ctxt.pushControlSignal(initOnce->dout());
 
     // Find all the outputs this event uses
     ev->processBlock(ctxt, eventAst->block_);
@@ -417,16 +419,12 @@ void Event::processStmt(Context& ctxt, IfStmt* stmt) {
 
     // Process if block
     Context ifCtxt(&ctxt, clause, 1);
-    for (auto bstmt: *((Block1*)stmt->block_)->liststatement_) {
-        processStatement(ifCtxt, bstmt);
-    }
+    processBlock(ifCtxt, stmt->block_);
 
     Context elseCtxt (&ctxt, clause, 0);
     Else* elseBlock = dynamic_cast<Else*>(stmt->elseblock_);
     if (elseBlock) {
-        for (auto bstmt: *((Block1*)elseBlock->block_)->liststatement_) {
-            processStatement(elseCtxt, bstmt);
-        }
+        processBlock(elseCtxt, elseBlock->block_);
     }
 
     ctxt.updateFromChildren({&ifCtxt, &elseCtxt});
@@ -474,38 +472,42 @@ void Event::processBlock(Context& ctxt, ::Block* blockSorta) {
             continue;
         }
 
-        throw CodeError("Don't yet know how to handle block attribute!", block->line_number);
+        throw CodeError("Don't yet know how to handle block attribute!",
+                        block->line_number);
     }
 
     if (atomic) {
         if (ctxt.inAtomic()) {
-            throw CodeError("Nested atomic regions not allowed", block->line_number);
+            throw CodeError("Nested atomic regions not allowed",
+                            block->line_number);
         }
 
         // Built a gated entry
         atomicSema = new Semaphore(ctxt.design);
         atomicSema->name("blockAtomic");
-        conns()->connect(atomicSema->wait()->din(), ctxt.controlSignal);
-        ctxt.controlSignal = atomicSema->wait()->dout();
-        ctxt.clearTBCCache();
-        ctxt.atomic = true;
+        conns()->connect(atomicSema->wait()->din(), ctxt.findControlSignal());
+        ctxt.pushControlSignal(atomicSema->wait()->dout());
+        ctxt.setAtomic();
     }
 
     if (atomic || xact) {
         auto readWait = new Wait(llvm::Type::getVoidTy(ctxt.llvmCtxt()));
         readWait->name("readWait");
+        auto ctrlSig = ctxt.findControlSignal();
+        if (ctrlSig != nullptr)
+            readWait->newControl(conns(), ctrlSig);
         auto voidConst = Constant::getVoid(design());
         conns()->connect(voidConst->dout(), readWait->din());
-        ctxt.readController = readWait;
-        ctxt.recordWriteAcks = true;
+        ctxt.setReadController(readWait);
     }
 
     if (xact) {
         if (ctxt.inXact()) {
-            throw CodeError("Nested transactions (xact) not allowed", block->line_number);
+            throw CodeError("Nested transactions (xact) not allowed",
+                            block->line_number);
         }
-        ctxt.writeControl = ctxt.readController->dout();
-        ctxt.xact = true;
+        ctxt.setWriteController(ctxt.readController()->dout());
+        ctxt.setXact();
     }
 
     // Process each statement in order, mutating the context as necessary
@@ -522,25 +524,25 @@ void Event::processBlock(Context& ctxt, ::Block* blockSorta) {
             nextAllowedWait->dout(),
             atomicSema->signal());
 
-        nextAllowedWait->newControl(conns(), ctxt.readController->dout());
-        for (auto op: ctxt.writeAcks) {
+        nextAllowedWait->newControl(conns(), ctxt.readController()->dout());
+        for (auto op: ctxt.writeAcks()) {
             nextAllowedWait->newControl(conns(), op);
         }
     }
 
     if (xact) {
         // Make next statements wait for our writes
-        auto writeWait = new Wait(ctxt.controlSignal->type());
+        auto voidTy = llvm::Type::getVoidTy(ctxt.design.context());
+        auto writeWait = new Wait(voidTy);
         writeWait->name("writeWait");
         auto tokenConst = Constant::getVoid(_mod->design());
         conns()->connect(tokenConst->dout(), writeWait->din());
         writeWait->newControl(conns(), ctxt.findWriteControl());
-        for (auto write: ctxt.writeAcks) {
+        for (auto write: ctxt.writeAcks()) {
             writeWait->newControl(conns(), write);
         }
-        if (ctxt.parent != nullptr && ctxt.parent->ev() != nullptr) {
-            ctxt.parent->controlSignal = writeWait->dout();
-            ctxt.parent->clearTBCCache();
+        if (ctxt.parent() != nullptr && ctxt.parent()->ev() != nullptr) {
+            ctxt.pushControlSignal(writeWait->dout());
         }
 
         // Note: I'm assuming ctxt is unused after this call and will be
@@ -565,18 +567,27 @@ void Event::processStmt(Context& ctxt, PushStmt* stmt) {
     auto rtr = new Router(2, val->type());
     rtr->name("pushMaskingRouter");
     connect(val, rtr->din()->join(*conns, 1));
+
+    // Build a value to tell us if this push should actually occur or not
     auto binClause = ctxt.buildTotalBinaryClause(conns);
-    connect(binClause,
+    connect(binClause,  // And connect it to the idx input
             rtr->din()->join(*conns, 0));
+
+    val = rtr->dout(1); // If the value pops out the '1' port, send it off
+
+    // This is useful
     auto voidConst = Constant::getVoid(design())->dout();
+
+    // A value popping out the '0' port means don't send.
+    // Construct a void dummy write ack token when this occurs
     auto maskedWriteAckWait = new Wait(voidConst->type());
     maskedWriteAckWait->name("maskedWriteAckWait");
-    maskedWriteAckWait->newControl(ctxt.conns(), rtr->dout(0));
     ctxt.conns()->connect(voidConst, maskedWriteAckWait->din());
-    val = rtr->dout(1);
+    maskedWriteAckWait->newControl(ctxt.conns(), rtr->dout(0));
 
     auto outp = getSinkForPush(ctxt, stmt);
     if (outp != nullptr) {
+        // If this is a simple push, just push it
         val = Expression::truncOrExtend(ctxt, val, outp->type());
         connect(val, outp);
         return;
@@ -584,12 +595,15 @@ void Event::processStmt(Context& ctxt, PushStmt* stmt) {
 
     auto memF = ctxt.mod()->namedStorage()->find(outName);
     if (memF != ctxt.mod()->namedStorage()->end()) {
+        // This is a write request.
         auto mem = memF->second;
         llvm::Type* memType = mem->write()->din()->type();
 
         auto pushArr = dynamic_cast<PushArray*>(stmt->pushsubdest_);
         OutputPort* arrIdx = nullptr;
         if (pushArr != nullptr) {
+            // If the write is to a memory of something indexed, get the
+            // sub-destination index.
             arrIdx = evalExpression(ctxt, pushArr->exp_).val;
             if (!arrIdx->type()->isIntegerTy()) {
                 throw CodeError("Array index must resolve to int", stmt->line_number);
@@ -600,28 +614,29 @@ void Event::processStmt(Context& ctxt, PushStmt* stmt) {
             memType = memType->getStructElementType(0);
         }
 
+        // Truncate the expression appropriately
         val = Expression::truncOrExtend(ctxt, val, memType);
         if (arrIdx != nullptr) {
+            // Join idx with value if idx is required
             auto j = new Join({val->type(), arrIdx->type()});
             connect(arrIdx, j->din(1));
             connect(val, j->din(0));
             val = j->dout();
         }
 
+        // OK, now the write req type should match our value type!
         if (mem->write()->din()->type() != val->type()) {
             throw CodeError("Type for memory does not match expression!",
                             stmt->line_number);
         }
 
+        // Add information about our request and response ports
         auto ev = ctxt.ev();
         auto inId = new Identity(mem->write()->respType());
         std::pair<OutputPort*, InputPort*> iface
             (ctxt.ev()->addOutputPort(val),
              ctxt.ev()->addInputPort(inId->din()));
-
         ev->_memWriteConnections[outName].push_back(iface);
-        auto sink = new NullSink(iface.second->type());
-        conns->connect(inId->dout(), sink->din());
 
         // The write ack needs to occur even if the write was masked out by
         // clause (if statement)! In this case, a maskedWriteAck is generated
@@ -646,10 +661,13 @@ void Event::processStmt(Context& ctxt, WaitUntilStmt* stmt) {
 
     auto voidTy = llvm::Type::getVoidTy(design().context());
     auto exprEvalControlSel = new Select(2, voidTy);
-    assert(ctxt.controlSignal != nullptr);
-    conns()->connect(ctxt.controlSignal,
+    auto controlSig = ctxt.findControlSignal();
+    assert(controlSig != nullptr);
+    conns()->connect(controlSig,
                      exprEvalControlSel->din(0));
-    Context waitCtxt(&ctxt, this, exprEvalControlSel->dout());
+    Context waitCtxt(&ctxt, nullptr, exprEvalControlSel->dout());
+    // FIXME: This is broken if the expression uses anything from the context
+    // which does not have to be requested! (i.e. messages or variables)
     auto exp = evalExpression(waitCtxt, stmt->exp_);
 
     auto evalRouter = new Router(2, voidTy);
@@ -662,8 +680,7 @@ void Event::processStmt(Context& ctxt, WaitUntilStmt* stmt) {
                      evalRouter->din()->join(*conns())->din(1));
     conns()->connect(evalRouter->dout(0), // False ("try again") feedback
                      exprEvalControlSel->din(1));
-    ctxt.controlSignal = evalRouter->dout(1); // Wait until exp true
-    ctxt.clearTBCCache();
+    ctxt.pushControlSignal(evalRouter->dout(1)); // Wait until exp true
 }
 
 void Event::processStmt(Context& ctxt, ReturnStmt* stmt) {

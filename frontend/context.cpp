@@ -22,65 +22,63 @@ namespace spatialc {
 
 Context::Context(Context* parent, Package* pkg) :
     design(pkg->design()),
-    parent(parent),
+    _parent(parent),
     _pkg(pkg),
     _mod(nullptr),
     _ev(nullptr),
-    controlSignal(nullptr),
-    clause(nullptr),
-    readController(nullptr),
-    writeControl(nullptr),
-    xact(false),
-    atomic(false),
-    recordWriteAcks(false)
+    _controlSignal(nullptr),
+    _clause(nullptr),
+    _readController(nullptr),
+    _writeControl(nullptr),
+    _xact(false),
+    _atomic(false)
 { }
 
 
 Context::Context(Context* parent, llpm::OutputPort* clause, uint32_t idx) :
     design(parent->design),
-    parent(parent),
+    _parent(parent),
     _pkg(nullptr),
     _mod(nullptr),
     _ev(nullptr),
-    controlSignal(parent->controlSignal),
-    clause(clause),
-    idx(idx),
-    readController(nullptr),
-    writeControl(nullptr),
-    xact(false),
-    atomic(false),
-    recordWriteAcks(false)
+    _controlSignal(nullptr),
+    _clause(clause),
+    _idx(idx),
+    _readController(nullptr),
+    _writeControl(nullptr),
+    _xact(false),
+    _atomic(false)
 { }
 
 
 Context::Context(Context* parent, Event* ev, llpm::OutputPort* cntrl) :
     design(parent->design),
-    parent(parent),
+    _parent(parent),
     _pkg(nullptr),
     _mod(nullptr),
     _ev(ev),
-    controlSignal(cntrl),
-    clause(nullptr),
-    readController(nullptr),
-    writeControl(nullptr),
-    xact(false),
-    atomic(false),
-    recordWriteAcks(false)
-{ }
+    _controlSignal(nullptr),
+    _clause(nullptr),
+    _readController(nullptr),
+    _writeControl(nullptr),
+    _xact(false),
+    _atomic(false)
+{
+    pushControlSignal(cntrl);
+}
 
 Context::Context(Context* parent, SpatialCModule* mod) :
     design(parent->design),
-    parent(parent),
+    _parent(parent),
     _pkg(nullptr),
     _mod(mod),
     _ev(nullptr),
-    controlSignal(nullptr),
-    clause(nullptr),
-    readController(nullptr),
-    writeControl(nullptr),
-    xact(false),
-    atomic(false),
-    recordWriteAcks(false)
+    _controlSignal(nullptr),
+    _clause(nullptr),
+    _readController(nullptr),
+    _writeControl(nullptr),
+    _xact(false),
+    _atomic(false)
 { }
 
 llpm::ConnectionDB* Context::conns() const {
@@ -94,24 +92,34 @@ llpm::ConnectionDB* Context::conns() const {
 }
 
 llpm::OutputPort* Context::findWriteControl() const {
-    if (writeControl != nullptr)
-        return writeControl;
-    if (parent != nullptr)
-        return parent->findWriteControl();
+    if (_writeControl != nullptr)
+        return _writeControl;
+    if (_parent != nullptr)
+        return _parent->findWriteControl();
     return nullptr;
 }
 
+void Context::pushReadDone(llpm::OutputPort* read) const {
+    if (_readController != nullptr) {
+        _readController->newControl(conns(), read);
+    }
+    if (_parent != nullptr) {
+        _parent->pushReadDone(read);
+    }
+}
+
 void Context::pushWriteDone(llpm::OutputPort* op) {
-    if (recordWriteAcks) {
-        writeAcks.insert(op);
-    } else if (parent != nullptr) {
-        parent->pushWriteDone(op);
+    if (inAtomic() || inXact()) {
+        _writeAcks.insert(op);
+    } 
+    if (_parent != nullptr) {
+        _parent->pushWriteDone(op);
     }
 }
 
 bool Context::update(const Variable& v) {
     bool found = false;
-    for (auto& ev: vars) {
+    for (auto& ev: _vars) {
         if (ev.name == v.name) {
             ev = v;
             found = true;
@@ -119,38 +127,38 @@ bool Context::update(const Variable& v) {
     }
     if (found)
         return true;
-    if (parent != nullptr && clause == nullptr)
-        return parent->update(v);
+    if (_parent != nullptr && _clause == nullptr)
+        return _parent->update(v);
     return false;
 }
 
 void Context::push(const Variable& v) {
     auto found = update(v);
     if (!found) {
-        vars.push_back(v);
+        _vars.push_back(v);
     }
 }
 
 Variable* Context::find(string id) {
-    for (auto& ev: vars) {
+    for (auto& ev: _vars) {
         if (ev.name == id) {
             return &ev;
         }
     }
-    if (parent != nullptr) {
-        return parent->find(id);
+    if (_parent != nullptr) {
+        return _parent->find(id);
     }
     return nullptr;
 }
 
 const Variable* Context::find(string id) const {
-    for (auto& ev: vars) {
+    for (auto& ev: _vars) {
         if (ev.name == id) {
             return &ev;
         }
     }
-    if (parent != nullptr) {
-        return parent->find(id);
+    if (_parent != nullptr) {
+        return _parent->find(id);
     }
     return nullptr;
 }
@@ -163,21 +171,23 @@ void Context::updateFromChildren(std::vector<Context*> children) {
     llpm::OutputPort* clause = nullptr;
     for (auto c: children) {
         if (clause == nullptr) {
-            clause = c->clause;
+            clause = c->_clause;
         } else {
-            assert(clause == c->clause && "All children must have same clause!");
+            assert(clause == c->_clause &&
+                   "All children must have same clause!");
         }
-        idxs.insert(c->idx);
+        idxs.insert(c->_idx);
     }
-    assert(children.size() == idxs.size() && "All children must have unique idxs");
+    assert(children.size() == idxs.size() &&
+           "All children must have unique idxs");
 
     // Find variables to get updated
     std::map<Variable, std::set<unsigned>> updateVars;
     for (auto& child: children) {
-        for (auto& cvar: child->vars) {
+        for (auto& cvar: child->_vars) {
             auto var = find(cvar.name);
             if (var != nullptr) {
-                updateVars[*var].insert(child->idx);
+                updateVars[*var].insert(child->_idx);
             }
         }
     }
@@ -198,15 +208,39 @@ void Context::updateFromChildren(std::vector<Context*> children) {
         conns->connect(sm->getSelector(*conns), clause);
         conns->connect(sm->getDefault(*conns), def);
         for (auto child: children) {
-            if (idxs.count(child->idx) > 0) {
+            if (idxs.count(child->_idx) > 0) {
                 auto cvar = child->find(var.name);
                 assert(cvar != nullptr);
-                conns->connect(sm->getInput(*conns, child->idx), cvar->op);
+                conns->connect(sm->getInput(*conns, child->_idx), cvar->op);
             }
         }
 
         var.op = sm->dout();
         update(var);
+    }
+}
+
+void Context::pushControlSignal(llpm::OutputPort* cs) {
+    auto prevCS = findControlSignal();
+    if (prevCS != nullptr) {
+        auto prevCSWait = new Wait(cs->type());
+        prevCSWait->name("prevCSWait");
+        conns()->connect(cs, prevCSWait->din());
+        prevCSWait->newControl(conns(), prevCS);
+        _controlSignal = prevCSWait->dout();
+    } else {
+        _controlSignal = cs;
+    }
+    _totalBinaryClauseCache.clear();
+}
+
+llpm::OutputPort* Context::findControlSignal() const {
+    if (_controlSignal != nullptr) {
+        return _controlSignal;
+    } else if (_parent != nullptr) {
+        return _parent->findControlSignal();
+    } else {
+        return nullptr;
     }
 }
 
@@ -218,52 +252,69 @@ llpm::OutputPort* Context::buildTotalBinaryClause(llpm::ConnectionDB* conns) {
         // Use a cached copy if available
         return cacheF->second;
     }
+
+    // Get our parent's TBC so that we can respect it
     OutputPort* parentbc = nullptr;
-    if (parent != nullptr)
-        parentbc = parent->buildTotalBinaryClause(conns);
+    if (_parent != nullptr)
+        parentbc = _parent->buildTotalBinaryClause(conns);
+
+    // Build a clause comparison
+    OutputPort* clauseEq = nullptr;
+    if (_clause != nullptr) {
+        auto localEq = new IntCompare(_clause->type(), _clause->type(),
+                                      IntCompare::EQ, false);
+        auto idxConst =
+            new Constant(llvm::ConstantInt::get(_clause->type(), _idx, false));
+        conns->connect(localEq->din()->join(*conns)->din(0), _clause);
+        conns->connect(localEq->din()->join(*conns)->din(1), idxConst->dout());
+        clauseEq = localEq->dout();
+    }
+
+    // Build a TBC which respects the local & parent clauses 
+    OutputPort* tbc = nullptr;
 
     if (parentbc == nullptr) {
-        if (clause != nullptr) {
-            return clause;
-        } else if (controlSignal == nullptr) {
-            return nullptr;
-        } else {
-            //We are top level and unconditional. Build 'true' waiting for control sig
+        if (clauseEq == nullptr) {
+            //We are top level and unconditional.
+            //  Build 'true' waiting for control sig
             auto trueConst = new Constant(llvm::ConstantInt::getTrue(llvmCtxt()));
-            auto wait = new Wait(trueConst->dout()->type());
-            wait->name("controlSigWait");
-            conns->connect(trueConst->dout(), wait->din());
-            wait->newControl(conns, controlSignal);
-            auto tbc = wait->dout();
-            _totalBinaryClauseCache.insert(make_pair(conns, tbc));
-            return tbc;
+            tbc = trueConst->dout();
+        } else {
+            tbc = clauseEq;
+        }
+    } else {
+        if (clauseEq == nullptr) {
+            tbc = parentbc;
+        } else {
+            auto andLogic = new Bitwise(2, parentbc->type(), Bitwise::AND);
+
+            conns->connect(andLogic->din()->join(*conns)->din(0), parentbc);
+            conns->connect(andLogic->din()->join(*conns)->din(1), clauseEq);
+
+            tbc = andLogic->dout();
         }
     }
 
-    assert(parentbc != nullptr);
-    if (clause == nullptr) {
-        return parentbc;
-    }
-
-    auto andLogic = new Bitwise(2, parentbc->type(), Bitwise::AND);
-    auto localEq = new IntCompare(clause->type(), clause->type(),
-                                  IntCompare::EQ, false);
-    auto idxConst =
-        new Constant(llvm::ConstantInt::get(clause->type(), idx, false));
-    conns->connect(localEq->din()->join(*conns)->din(0), clause);
-    conns->connect(localEq->din()->join(*conns)->din(1), idxConst->dout());
-
-    conns->connect(andLogic->din()->join(*conns)->din(0), parentbc);
-    conns->connect(andLogic->din()->join(*conns)->din(1), localEq->dout());
-
-    auto tbc = andLogic->dout();
+    tbc = addControlSigWait(tbc);
     _totalBinaryClauseCache.insert(make_pair(conns, tbc));
     return tbc;
 }
 
+llpm::OutputPort* Context::addControlSigWait(llpm::OutputPort* value) const {
+    auto cs = findControlSignal();
+    if (cs == nullptr)
+        return value;
+
+    auto wait = new Wait(value->type());
+    wait->name("controlSigWait");
+    conns()->connect(value, wait->din());
+    wait->newControl(conns(), cs); 
+    return wait->dout();
+}
+
 const std::vector<llvm::Type*> Context::llvm() const {
     std::vector<llvm::Type*> ret;
-    for (const auto& v: vars) {
+    for (const auto& v: _vars) {
         ret.push_back(v.ty.llvm());
     }
     return std::move(ret);
@@ -276,7 +327,7 @@ Join* Context::createJoinSplit(ConnectionDB* conns) {
     conns->connect(j->dout(), s->din());
 
     for (size_t i=0; i<tyVec.size(); i++) {
-        auto& v = vars[i];
+        auto& v = _vars[i];
         conns->connect(v.op, j->din(i));
         v.op = s->dout(i);
     }

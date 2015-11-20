@@ -44,79 +44,105 @@ struct Variable {
 class Context {
 public:
     llpm::Design& design;
-    Context* parent;
+
+private:
+    Context* _parent;
     Package* _pkg;
     SpatialCModule* _mod;
     Event* _ev;
-    llpm::OutputPort* controlSignal;
-    llpm::OutputPort* clause;
-    uint32_t    idx;
+    llpm::OutputPort* _controlSignal;
     std::map<llpm::ConnectionDB*, llpm::OutputPort*> _totalBinaryClauseCache;
-    std::vector<Variable> vars;
-    llpm::Wait*       readController;
-    llpm::OutputPort* writeControl;
-    bool xact;
-    bool atomic;
-    bool recordWriteAcks;
-    std::set<llpm::OutputPort*> writeAcks;
 
+    llpm::OutputPort* _clause;
+    uint32_t    _idx;
+    std::vector<Variable> _vars;
+    llpm::Wait*       _readController;
+    llpm::OutputPort* _writeControl;
+    bool _xact;
+    bool _atomic;
+    std::set<llpm::OutputPort*> _writeAcks;
+
+public:
     Context(Context* parent, Package* pkg);
-    Context(Context* parent, llpm::OutputPort* clause = nullptr, uint32_t idx = 0);
+    Context(Context* parent,
+            llpm::OutputPort* clause = nullptr,
+            uint32_t idx = 0);
     Context(Context* parent, Event* ev, llpm::OutputPort* cntrl);
     Context(Context* parent, SpatialCModule* mod);
+
+    DEF_GET_NP(parent);
+    DEF_GET_NP(writeAcks);
+    DEF_GET_NP(vars);
+    DEF_GET_NP(readController);
 
     llvm::LLVMContext& llvmCtxt() const {
         return design.context();
     }
 
-    void clearTBCCache() {
-        _totalBinaryClauseCache.clear();
+    void setReadController(llpm::Wait* rc) {
+        _readController = rc;
+    }
+
+    void setWriteController(llpm::OutputPort* writeControl) {
+        _writeControl = writeControl;
+    }
+
+    void setXact() {
+        _xact = true;
+    }
+
+    void setAtomic() {
+        _atomic = true;
     }
 
     Package* pkg() const {
         if (this->_pkg != nullptr)
             return this->_pkg;
-        if (this->parent != nullptr)
-            return this->parent->pkg();
+        if (this->_parent != nullptr)
+            return this->_parent->pkg();
         return nullptr;
     }
 
     SpatialCModule* mod() const {
         if (this->_mod != nullptr)
             return this->_mod;
-        if (this->parent != nullptr)
-            return this->parent->mod();
+        if (this->_parent != nullptr)
+            return this->_parent->mod();
         return nullptr;
     }
 
     Event* ev() const {
         if (this->_ev != nullptr)
             return this->_ev;
-        if (this->parent != nullptr)
-            return this->parent->ev();
+        if (this->_parent != nullptr)
+            return this->_parent->ev();
         return nullptr;
     }
 
     bool inXact() const {
-        if (xact)
+        if (_xact)
             return true;
-        if (parent != nullptr)
-            return parent->inXact();
+        if (_parent != nullptr)
+            return _parent->inXact();
         return false;
     }
 
     bool inAtomic() const {
-        if (atomic)
+        if (_atomic)
             return true;
-        if (parent != nullptr)
-            return parent->inXact();
+        if (_parent != nullptr)
+            return _parent->inAtomic();
         return false;
     }
 
     llpm::ConnectionDB* conns() const;
     llpm::OutputPort* findWriteControl() const;
 
+    void pushReadDone(llpm::OutputPort* read) const;
     void pushWriteDone(llpm::OutputPort* op);
+
+    void pushControlSignal(llpm::OutputPort* cs);
+    llpm::OutputPort* findControlSignal() const;
 
     bool update(const Variable& v);
     void push(const Variable& v);
@@ -133,6 +159,8 @@ public:
     const std::vector<llvm::Type*> llvm() const;
 
     llpm::Join* createJoinSplit(llpm::ConnectionDB* conns);
+
+    llpm::OutputPort* addControlSigWait(llpm::OutputPort*) const;
 };
 
 } // namespace spatialc
