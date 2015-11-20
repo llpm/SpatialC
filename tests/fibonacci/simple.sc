@@ -14,13 +14,19 @@ module Simple {
         fibControl <- void;
     }
 
-    event "fibber" (fibControl -> msg) {
+    event "fibber" (fibControl -> *) atomic {
+        fibSeq <- fib2; 
         xact { 
-            var next = fib1 + fib2;
-            fibSeq <- next; 
-            fib1 <- fib2;
-            fib2 <- next;
+            var fib1 = fib1;
+            var fib2 = fib2;
+            if (fib1 == 0 && fib2 == 0) {
+                fib2 <- 1;
+            } else {
+                var next = fib1 + fib2;
+                fib1 <- fib2;
+                fib2 <- next;
+            }
         }
-        fibControl <- msg;
+        fibControl <- void;
     }
 }

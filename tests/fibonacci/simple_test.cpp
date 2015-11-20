@@ -1,4 +1,5 @@
 #include "Simple.hpp"
+#include "obj/verilator_extra.h"
 
 #include <cstdio>
 #include <stdint.h>
@@ -6,7 +7,8 @@
 
 int main() {
     Simple* s = new Simple();
-    //s->trace("debug.vcd");
+    s->trace("debug.vcd");
+    start_debug(fopen("debug.txt", "w"));
     s->reset();
     uint64_t start = s->cycles();
 
@@ -19,6 +21,7 @@ int main() {
     uint64_t stop = s->cycles();
     printf("Took %lu cycles to run\n", stop - start);
 
+    close_debug();
     delete s;
     return 0;
 }

@@ -231,6 +231,7 @@ llpm::OutputPort* Context::buildTotalBinaryClause(llpm::ConnectionDB* conns) {
             //We are top level and unconditional. Build 'true' waiting for control sig
             auto trueConst = new Constant(llvm::ConstantInt::getTrue(llvmCtxt()));
             auto wait = new Wait(trueConst->dout()->type());
+            wait->name("controlSigWait");
             conns->connect(trueConst->dout(), wait->din());
             wait->newControl(conns, controlSignal);
             auto tbc = wait->dout();

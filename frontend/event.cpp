@@ -97,6 +97,7 @@ void Event::buildInitial(Context& ctxt, ListEventParam* list) {
 
     // Create pure control token
     auto controlWait = new Wait(llvm::Type::getVoidTy(ctxt.llvmCtxt()));
+    controlWait->name("controlWait");
     controlWait->newControl(conns, cdToken);
     auto controlToken = new Constant(llvm::Type::getVoidTy(ctxt.llvmCtxt()));
     conns->connect(controlToken->dout(), controlWait->din());
@@ -483,6 +484,7 @@ void Event::processBlock(Context& ctxt, ::Block* blockSorta) {
 
         // Built a gated entry
         atomicSema = new Semaphore(ctxt.design);
+        atomicSema->name("blockAtomic");
         conns()->connect(atomicSema->wait()->din(), ctxt.controlSignal);
         ctxt.controlSignal = atomicSema->wait()->dout();
         ctxt.clearTBCCache();
@@ -491,6 +493,7 @@ void Event::processBlock(Context& ctxt, ::Block* blockSorta) {
 
     if (atomic || xact) {
         auto readWait = new Wait(llvm::Type::getVoidTy(ctxt.llvmCtxt()));
+        readWait->name("readWait");
         auto voidConst = Constant::getVoid(design());
         conns()->connect(voidConst->dout(), readWait->din());
         ctxt.readController = readWait;
@@ -512,11 +515,12 @@ void Event::processBlock(Context& ctxt, ::Block* blockSorta) {
 
     if (atomic) {
         auto nextAllowedWait = new Wait(atomicSema->wait()->dout()->type());
+        nextAllowedWait->name("proceedWait");
+        auto tokenConst = Constant::getVoid(_mod->design());
+        conns()->connect(tokenConst->dout(), nextAllowedWait->din());
         conns()->connect(
             nextAllowedWait->dout(),
             atomicSema->signal());
-        auto tokenConst = Constant::getVoid(_mod->design());
-        conns()->connect(tokenConst->dout(), nextAllowedWait->din());
 
         nextAllowedWait->newControl(conns(), ctxt.readController->dout());
         for (auto op: ctxt.writeAcks) {
@@ -527,8 +531,10 @@ void Event::processBlock(Context& ctxt, ::Block* blockSorta) {
     if (xact) {
         // Make next statements wait for our writes
         auto writeWait = new Wait(ctxt.controlSignal->type());
-        conns()->connect(ctxt.controlSignal, writeWait->din());
-        writeWait->newControl(conns(), ctxt.writeControl);
+        writeWait->name("writeWait");
+        auto tokenConst = Constant::getVoid(_mod->design());
+        conns()->connect(tokenConst->dout(), writeWait->din());
+        writeWait->newControl(conns(), ctxt.findWriteControl());
         for (auto write: ctxt.writeAcks) {
             writeWait->newControl(conns(), write);
         }
@@ -546,21 +552,28 @@ void Event::processStmt(Context& ctxt, PushStmt* stmt) {
     auto conns = ctxt.conns();
     auto outName = stmt->id_;
     auto val = evalExpression(ctxt, stmt->exp_).val;
-    auto rtr = new Router(2, val->type());
-    connect(val, rtr->din()->join(*conns, 1));
-    connect(ctxt.buildTotalBinaryClause(conns),
-            rtr->din()->join(*conns, 0));
-    auto ns = new NullSink(rtr->dout(0)->type());
-    connect(rtr->dout(0), ns->din());
-    val = rtr->dout(1);
 
     // If in transaction, wait for reads to complete
     if (ctxt.inXact()) {
         auto readWait = new Wait(val->type());
+        readWait->name("readWait");
         readWait->newControl(conns, ctxt.findWriteControl());
         conns->connect(val, readWait->din());
         val = readWait->dout();
     }
+
+    auto rtr = new Router(2, val->type());
+    rtr->name("pushMaskingRouter");
+    connect(val, rtr->din()->join(*conns, 1));
+    auto binClause = ctxt.buildTotalBinaryClause(conns);
+    connect(binClause,
+            rtr->din()->join(*conns, 0));
+    auto voidConst = Constant::getVoid(design())->dout();
+    auto maskedWriteAckWait = new Wait(voidConst->type());
+    maskedWriteAckWait->name("maskedWriteAckWait");
+    maskedWriteAckWait->newControl(ctxt.conns(), rtr->dout(0));
+    ctxt.conns()->connect(voidConst, maskedWriteAckWait->din());
+    val = rtr->dout(1);
 
     auto outp = getSinkForPush(ctxt, stmt);
     if (outp != nullptr) {
@@ -609,7 +622,16 @@ void Event::processStmt(Context& ctxt, PushStmt* stmt) {
         ev->_memWriteConnections[outName].push_back(iface);
         auto sink = new NullSink(iface.second->type());
         conns->connect(inId->dout(), sink->din());
-        ctxt.pushWriteDone(inId->dout());
+
+        // The write ack needs to occur even if the write was masked out by
+        // clause (if statement)! In this case, a maskedWriteAck is generated
+        // above and needs to be selected here.
+        auto writeAckSel = new IdxSelect(2, voidConst->type());
+        writeAckSel->name("writeAckSel");
+        ctxt.conns()->connect(inId->dout(), writeAckSel->din(1));
+        ctxt.conns()->connect(maskedWriteAckWait->dout(), writeAckSel->din(0));
+        ctxt.conns()->connect(binClause, writeAckSel->idx());
+        ctxt.pushWriteDone(writeAckSel->dout());
         return;
     }
 
@@ -631,6 +653,7 @@ void Event::processStmt(Context& ctxt, WaitUntilStmt* stmt) {
     auto exp = evalExpression(waitCtxt, stmt->exp_);
 
     auto evalRouter = new Router(2, voidTy);
+    evalRouter->name("waitUntilLoop");
     auto voidConst = Constant::getVoid(design());
     auto routerIdxIn = evalRouter->din()->join(*conns())->din(0);
     exp = Expression::truncOrExtend(waitCtxt, exp, Type(routerIdxIn->type()));
