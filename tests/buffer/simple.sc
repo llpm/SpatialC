@@ -24,18 +24,15 @@ module Buffer (
         wait_until ( (end != 0 && start != (end - 1)) ||
                      (end == 0 && start != (Size - 1)) );
 
-        xact {
-            var start = start;
-            var startNext = start + 1;
-            if (startNext >= Size) {
-                startNext = 0;
-            }
-
-            buffer[start] <- data;
-            start <- startNext;
+        var start = start;
+        var startNext = start + 1;
+        if (startNext >= Size) {
+            startNext = 0;
         }
 
-        /*
+        buffer[start] <- data;
+        start <- startNext;
+
         var end = end;
         var trueStart = startNext;
         if (end > startNext) {
@@ -45,20 +42,18 @@ module Buffer (
         if (trueStart - end >= Threshold) {
             intFlushStart <- void;
         }
-        */
     }
 
     reg uint1 flushing;
-    /*
     internal void flushLoop;
     event "startFlush" ((flush | intFlushStart) -> *) atomic {
         if (flushing == 0) {
             xact { flushing <- 1; }
             flushLoop <- void;
         }
-    }*/
+    }
 
-    event "flush" (flush -> *) atomic xact {
+    event "flush" (flushLoop -> *) atomic xact {
         var end = end;
         if (end != start) {
             dout <- buffer[end];
@@ -67,7 +62,7 @@ module Buffer (
                 endVal = 0;
             }
             end <- endVal;
-            //flushLoop <- void;
+            flushLoop <- void;
         } else {
             flushing <- 0;
         }
@@ -79,7 +74,7 @@ module Simple {
     input void flush;
     output int dout;
 
-    mod Buffer!(Type=type int, Size=8, Threshold=4) buffer;
+    mod Buffer!(Type=type int, Size=64, Threshold=32) buffer;
 
     connect din -> buffer.din;
     connect buffer.dout -> dout;
