@@ -18,35 +18,51 @@ using namespace llpm;
 
 namespace spatialc {
 
-ValTy Expression::eval(const Context& ctxt, EVoid*) {
-    return llpm::Constant::getVoid(ctxt.design)->dout();
+template<typename T>
+static ValTy nameWrap(ValTy valty, T exp) {
+    valty.val->owner()->name(str(boost::format("line%1%") % exp->line_number));
+    return valty;
 }
-ValTy Expression::eval(const Context& ctxt, ETrue*) {
-    return (new llpm::Constant(
+
+ValTy Expression::eval(const Context& ctxt, EVoid* exp) {
+    return nameWrap(
+        llpm::Constant::getVoid(ctxt.design)->dout(),
+        exp);
+}
+ValTy Expression::eval(const Context& ctxt, ETrue* exp) {
+    return nameWrap(
+        (new llpm::Constant(
+             llvm::Constant::getIntegerValue(
+                 llvm::Type::getInt1Ty(ctxt.llvmCtxt()),
+                 llvm::APInt(1, 1))))->dout(),
+        exp);
+}
+ValTy Expression::eval(const Context& ctxt, EFalse* exp) {
+    return nameWrap(
+        (new llpm::Constant(
                 llvm::Constant::getIntegerValue(
                     llvm::Type::getInt1Ty(ctxt.llvmCtxt()),
-                    llvm::APInt(1, 1))))->dout();
-}
-ValTy Expression::eval(const Context& ctxt, EFalse*) {
-    return (new llpm::Constant(
-                llvm::Constant::getIntegerValue(
-                    llvm::Type::getInt1Ty(ctxt.llvmCtxt()),
-                    llvm::APInt(1, 1))))->dout();
+                    llvm::APInt(1, 1))))->dout(),
+        exp);
 }
 ValTy Expression::eval(const Context& ctxt, EInt* exp) {
     Integer i = exp->integer_;
-    return (new llpm::Constant(
+    return nameWrap(
+        (new llpm::Constant(
                 llvm::Constant::getIntegerValue(
                     llvm::Type::getIntNTy(ctxt.llvmCtxt(),
                                           sizeof(Integer) * 8),
-                    llvm::APInt(sizeof(Integer) * 8, i))))->dout();
+                    llvm::APInt(sizeof(Integer) * 8, i))))->dout(),
+        exp);
 }
 ValTy Expression::eval(const Context& ctxt, EDouble* exp) {
     Double d = exp->double_;
-    return (new llpm::Constant(
+    return nameWrap(
+        (new llpm::Constant(
                 llvm::ConstantFP::get(
                     llvm::Type::getDoubleTy(ctxt.llvmCtxt()),
-                    d)))->dout();
+                    d)))->dout(),
+        exp);
 }
 
 ValTy Expression::evalId(const Context& ctxt, std::string id) {
@@ -142,7 +158,10 @@ ValTy Expression::eval(const Context& ctxt, EArrAcc* exp) {
 
         ev->_memReadConnections[id].push_back(iface);
         ctxt.pushReadDone(inId->dout());
-        return ValTy(inId->dout(), tyF->second.asArray()->contained());
+
+        return nameWrap(
+            ValTy(inId->dout(), tyF->second.asArray()->contained()),
+            exp);
     } else if (val.ty.isVector()) {
 
         auto split = val.val->split(*ctxt.conns());
@@ -154,7 +173,9 @@ ValTy Expression::eval(const Context& ctxt, EArrAcc* exp) {
         for (unsigned i=0; i<val.ty.asVector()->length(); i++) {
             ctxt.conns()->connect(split->dout(i), muxIn->din(i+1));
         }
-        return ValTy(mux->dout(), val.ty.asVector()->contained());
+        return nameWrap(
+            ValTy(mux->dout(), val.ty.asVector()->contained()),
+            exp);
     } else {
         throw CodeError("Cannot apply array access operator to this memory type",
                         exp->line_number);
@@ -199,7 +220,7 @@ ValTy Expression::eval(const Context& ctxt, EStructLiteral* exp) {
     for (unsigned i=0; i<fields.size(); i++) {
         ctxt.conns()->connect(fields[i], j->din(i));
     }
-    return ValTy(j->dout(), ty);
+    return nameWrap( ValTy(j->dout(), ty), exp );
 }
 ValTy Expression::eval(const Context& ctxt, EVectorLiteral* expLit) {
     vector<ValTy> vals;
@@ -220,7 +241,7 @@ ValTy Expression::eval(const Context& ctxt, EVectorLiteral* expLit) {
         vals[i] = truncOrExtend(ctxt, vals[i], largest.llvm());
         ctxt.conns()->connect(vals[i].val, join->din(i));
     }
-    return ValTy(join->dout(), Type(vecTy));
+    return nameWrap( ValTy(join->dout(), Type(vecTy)), expLit );
 }
 
 ValTy Expression::eval(const Context& ctxt, EDot* exp) {
@@ -229,7 +250,9 @@ ValTy Expression::eval(const Context& ctxt, EDot* exp) {
         throw CodeError("Can only use dot (.) accessor on structs", exp->line_number);
     }
 
-    return val.ty.asStruct()->accessor(ctxt.conns(), val.val, exp->id_);
+    return nameWrap(
+        val.ty.asStruct()->accessor(ctxt.conns(), val.val, exp->id_),
+        exp);
 }
 
 template<typename IntOp>
@@ -278,7 +301,7 @@ ValTy evalBinOp(const Context& ctxt,
     c(exp, a, b, ain, aout); 
     ctxt.conns()->connect(a.val, ain->join(*ctxt.conns(), 0));
     ctxt.conns()->connect(b.val, ain->join(*ctxt.conns(), 1));
-    return aout;
+    return nameWrap( aout, exp );
 }
 
 ValTy Expression::eval(const Context& ctxt, EPlus* exp) {
