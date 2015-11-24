@@ -9,7 +9,7 @@ module Simple {
     init "fibStart" {
         xact {
             fib1 <- 0;
-            fib2 <- 1;
+            fib2 <- 0;
         }
         fibControl <- void;
     }

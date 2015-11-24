@@ -64,7 +64,8 @@ Context::Context(Context* parent, Event* ev, llpm::OutputPort* cntrl) :
     _xact(false),
     _atomic(false)
 {
-    pushControlSignal(cntrl);
+    if (cntrl != nullptr)
+        pushControlSignal(cntrl);
 }
 
 Context::Context(Context* parent, SpatialCModule* mod) :
@@ -88,6 +89,14 @@ llpm::ConnectionDB* Context::conns() const {
     auto m = mod();
     if (m != nullptr)
         return m->conns();
+    return nullptr;
+}
+
+Context* Context::findModuleCtxt() {
+    if (mod() != nullptr && ev() == nullptr)
+        return this;
+    if (_parent != nullptr)
+        return _parent->findModuleCtxt();
     return nullptr;
 }
 
@@ -231,6 +240,11 @@ void Context::pushControlSignal(llpm::OutputPort* cs) {
     } else {
         _controlSignal = cs;
     }
+    _totalBinaryClauseCache.clear();
+}
+
+void Context::replaceControlSignal(llpm::OutputPort* cs) {
+    _controlSignal = cs;
     _totalBinaryClauseCache.clear();
 }
 

@@ -524,6 +524,9 @@ void Event::processBlock(Context& ctxt, ::Block* blockSorta) {
             nextAllowedWait->dout(),
             atomicSema->signal());
 
+        auto newestCS = ctxt.findControlSignal();
+        if (newestCS != nullptr)
+            nextAllowedWait->newControl(conns(), newestCS);
         nextAllowedWait->newControl(conns(), ctxt.readController()->dout());
         for (auto op: ctxt.writeAcks()) {
             nextAllowedWait->newControl(conns(), op);
@@ -665,7 +668,13 @@ void Event::processStmt(Context& ctxt, WaitUntilStmt* stmt) {
     assert(controlSig != nullptr);
     conns()->connect(controlSig,
                      exprEvalControlSel->din(0));
-    Context waitCtxt(&ctxt, nullptr, exprEvalControlSel->dout());
+    auto modCtxt = ctxt.findModuleCtxt();
+    assert(modCtxt != nullptr);
+
+    // Run the wait in a new context owned by this event, but without any of
+    // the current parents.
+    Context waitCtxt(modCtxt, this, exprEvalControlSel->dout());
+
     // FIXME: This is broken if the expression uses anything from the context
     // which does not have to be requested! (i.e. messages or variables)
     auto exp = evalExpression(waitCtxt, stmt->exp_);

@@ -13,7 +13,7 @@ module Buffer (
     input Type din;
     output Type dout;
     input void flush;
-    internal void intFlush;
+    internal void intFlushStart;
 
     init {
         start <- 0;
@@ -24,29 +24,41 @@ module Buffer (
         wait_until ( (end != 0 && start != (end - 1)) ||
                      (end == 0 && start != (Size - 1)) );
 
-        var start = start;
-        var startNext = start + 1;
-        if (startNext >= Size) {
-            startNext = 0;
-        }
-
         xact {
+            var start = start;
+            var startNext = start + 1;
+            if (startNext >= Size) {
+                startNext = 0;
+            }
+
             buffer[start] <- data;
             start <- startNext;
         }
 
+        /*
         var end = end;
         var trueStart = startNext;
         if (end > startNext) {
             trueStart = trueStart + Size;
         }
 
-        //if (trueStart - end >= Threshold) {
-            intFlush <- void;
-        //}
+        if (trueStart - end >= Threshold) {
+            intFlushStart <- void;
+        }
+        */
     }
 
-    event "flush" ((flush | intFlush) -> *) xact atomic {
+    reg uint1 flushing;
+    /*
+    internal void flushLoop;
+    event "startFlush" ((flush | intFlushStart) -> *) atomic {
+        if (flushing == 0) {
+            xact { flushing <- 1; }
+            flushLoop <- void;
+        }
+    }*/
+
+    event "flush" (flush -> *) atomic xact {
         var end = end;
         if (end != start) {
             dout <- buffer[end];
@@ -55,7 +67,9 @@ module Buffer (
                 endVal = 0;
             }
             end <- endVal;
-            //intFlush <- void;
+            //flushLoop <- void;
+        } else {
+            flushing <- 0;
         }
     }
 }

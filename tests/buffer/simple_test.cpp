@@ -12,7 +12,7 @@ using namespace std;
 
 int main() {
     Simple* s = new Simple();
-    // s->trace("debug.vcd");
+    s->trace("debug.vcd");
     start_debug(fopen("debug.txt", "w"));
     s->reset();
     s->run(5);
@@ -32,9 +32,9 @@ int main() {
             din.arg0 = rand() % 1000;
             s->din_nonblock(din);
             q.push_back(din.arg0);
+            // printf("-> %u (%u)\n", din.arg0, i);
             i++;
-            // printf("-> %u\n", din.arg0);
-        } else if ((rand() & 0xFF) == 0 &&
+        } else if ((rand() & 0x3F) == 0 &&
                    s->dout_nonblock(&dout)) {
             int correct = q.front();
             q.pop_front();
@@ -44,22 +44,31 @@ int main() {
                 printf("%u: %d, %d (ERROR)\n", outCounter, dout.arg0, correct);
             outCounter++;
         } else {
+            if (s->flush_size() == 0)
+                s->flush_nonblock({});
             s->run(1);
         }
+        fflush(stdout);
     }
 
     // s->flush();
-
+    printf("Switching to read only\n");
     while (outCounter < NUM) {
         Simple::dout_type dout;
-        s->dout(&dout);
-        int correct = q.front();
-        q.pop_front();
-        if (dout.arg0 == correct)
-            printf("%u: %d, %d (rdonly)\n", outCounter, dout.arg0, correct);
-        else 
-            printf("%u: %d, %d (rdonly, ERROR)\n", outCounter, dout.arg0, correct);
-        outCounter++;
+        if(s->dout_nonblock(&dout)) {
+            int correct = q.front();
+            q.pop_front();
+            if (dout.arg0 == correct)
+                printf("%u: %d, %d (rdonly)\n", outCounter, dout.arg0, correct);
+            else 
+                printf("%u: %d, %d (rdonly, ERROR)\n", outCounter, dout.arg0, correct);
+            outCounter++;
+            fflush(stdout);
+        } else if (s->flush_size() == 0) {
+            s->flush_nonblock({});
+        } else {
+            s->run(1);
+        }
     }
 
     uint64_t stop = s->cycles();

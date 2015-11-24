@@ -95,6 +95,8 @@ public:
         _atomic = true;
     }
 
+    Context* findModuleCtxt();
+
     Package* pkg() const {
         if (this->_pkg != nullptr)
             return this->_pkg;
@@ -142,6 +144,7 @@ public:
     void pushWriteDone(llpm::OutputPort* op);
 
     void pushControlSignal(llpm::OutputPort* cs);
+    void replaceControlSignal(llpm::OutputPort* cs);
     llpm::OutputPort* findControlSignal() const;
 
     bool update(const Variable& v);
