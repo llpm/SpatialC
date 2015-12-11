@@ -9,23 +9,18 @@ module Simple {
     init "fibStart" {
         xact {
             fib1 <- 0;
-            fib2 <- 0;
-        }
+            fib2 <- 1;
         fibControl <- void;
+        }
     }
 
     event "fibber" (fibControl -> *) atomic {
+        var fib2 = fib2;
         fibSeq <- fib2; 
         xact { 
-            var fib1 = fib1;
-            var fib2 = fib2;
-            if (fib1 == 0 && fib2 == 0) {
-                fib2 <- 1;
-            } else {
-                var next = fib1 + fib2;
-                fib1 <- fib2;
-                fib2 <- next;
-            }
+            var next = fib1 + fib2;
+            fib1 <- fib2;
+            fib2 <- next;
         }
         fibControl <- void;
     }
