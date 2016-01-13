@@ -1,5 +1,4 @@
-#ifndef __SPATIALC_FRONTEND_EXPRESSION_HPP__
-#define __SPATIALC_FRONTEND_EXPRESSION_HPP__
+#pragma once
 
 #include <frontend/type.hpp>
 #include <grammar/Absyn.H>
@@ -45,5 +44,4 @@ struct Expression {
 
 } // namespace spatialc
 
-#endif // __SPATIALC_FRONTEND_EXPRESSION_HPP__
 

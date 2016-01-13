@@ -1,5 +1,4 @@
-#ifndef __SPATIALC_FRONTEND_CONTEXT_HPP__
-#define __SPATIALC_FRONTEND_CONTEXT_HPP__
+#pragma once
 
 #include <llpm/ports.hpp>
 #include <llpm/design.hpp>
@@ -168,4 +167,3 @@ public:
 
 } // namespace spatialc
 
-#endif // __SPATIALC_FRONTEND_CONTEXT_HPP__

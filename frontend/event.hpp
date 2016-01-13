@@ -1,5 +1,4 @@
-#ifndef __SPATIALC_FRONTEND_EVENT_HPP__
-#define __SPATIALC_FRONTEND_EVENT_HPP__
+#pragma once
 
 #include <llpm/module.hpp>
 #include <frontend/type.hpp>
@@ -64,4 +63,3 @@ public:
 
 } // namespace spatialc
 
-#endif // __SPATIALC_FRONTEND_EVENT_HPP__

@@ -1,5 +1,4 @@
-#ifndef __SPATIALC_FRONTEND_MODULE_HPP__
-#define __SPATIALC_FRONTEND_MODULE_HPP__
+#pragma once
 
 #include <llpm/module.hpp>
 #include <frontend/type.hpp>
@@ -108,5 +107,4 @@ public:
 
 }
 
-#endif // __SPATIALC_FRONTEND_MODULE_HPP__
 

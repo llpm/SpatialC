@@ -1,5 +1,4 @@
-#ifndef __SPATIALC_FRONTEND_PACKAGE_SET_HPP__
-#define __SPATIALC_FRONTEND_PACKAGE_SET_HPP__
+#pragma once
 
 #include <string>
 #include <vector>
@@ -102,4 +101,3 @@ public:
 
 }
 
-#endif // __SPATIALC_FRONTEND_PACKAGE_SET_HPP__

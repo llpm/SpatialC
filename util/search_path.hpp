@@ -1,5 +1,4 @@
-#ifndef __SPATIALC_UTIL_SEARCH_PATH_HPP__
-#define __SPATIALC_UTIL_SEARCH_PATH_HPP__
+#pragma once
 
 #include <vector>
 #include <string>
@@ -19,4 +18,3 @@ public:
     FILE* open(std::string relPath, const char* mode = "r");
 };
 
-#endif // __SPATIALC_UTIL_SEARCH_PATH_HPP__

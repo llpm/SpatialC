@@ -1,5 +1,4 @@
-#ifndef __SPATIALC_FRONTEND_EXCEPTION_HPP__
-#define __SPATIALC_FRONTEND_EXCEPTION_HPP__
+#pragma once
 
 #include <llpm/exceptions.hpp>
 
@@ -22,4 +21,3 @@ public:
 
 }
 
-#endif // __SPATIALC_FRONTEND_EXCEPTION_HPP__

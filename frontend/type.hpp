@@ -1,5 +1,4 @@
-#ifndef __SPATIALC_FRONTEND_TYPE_HPP__
-#define __SPATIALC_FRONTEND_TYPE_HPP__
+#pragma once
 
 #include <string>
 #include <map>
@@ -244,4 +243,3 @@ public:
 
 } // namespace spatialc
 
-#endif // __SPATIALC_FRONTEND_TYPE_HPP__
