@@ -1,4 +1,4 @@
-OPTS=--control_regions 1
+OPTS=
 CFLAGS=-O0
 CXXFLAGS=${CFLAGS} -std=c++1y
 

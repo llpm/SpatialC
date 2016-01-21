@@ -12,7 +12,6 @@ int main() {
     Simple* s = new Simple();
     s->trace("debug.vcd");
     s->reset();
-    uint64_t start = s->cycles();
     uint32_t tmp;
 
     start_debug(fopen("debug.txt", "w"));
@@ -34,8 +33,14 @@ int main() {
     }
 
     printf("Sorting!\n");
+
+    uint64_t start = s->cycles();
+
     s->sort();
     s->sortDone(&tmp);
+
+    uint64_t stop = s->cycles();
+    printf("Took %lu cycles to run\n", stop - start);
 
     int32_t last;
     for (int32_t i=0; i<NUM; i++) {
@@ -50,8 +55,7 @@ int main() {
         last = n;
     }
 
-    uint64_t stop = s->cycles();
-    printf("Took %lu cycles to run\n", stop - start);
+
 
     close_debug();
 

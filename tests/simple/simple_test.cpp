@@ -6,7 +6,7 @@
 
 int main() {
     Simple* s = new Simple();
-    //s->trace("debug.vcd");
+    s->trace("debug.vcd");
     s->reset();
     uint64_t start = s->cycles();
     s->rst();
@@ -20,7 +20,8 @@ int main() {
         s->incrOut((uint64_t*)&k);
         s->cmpOut(&c);
         printf("in: %u, out: %u, %ld, %u\n", i, j, k, c);
-        assert( i == j );
+        if (i != j)
+            printf(" ^^^ ERROR ^^^\n");
     }
 
     uint64_t stop = s->cycles();
