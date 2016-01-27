@@ -17,7 +17,8 @@ int main() {
     s->reset();
     s->run(5);
 
-    unsigned NUM = 500;
+    unsigned errors = 0;
+    unsigned NUM = 100;
 
     // srand(time(NULL));
     unsigned outCounter = 0;
@@ -29,18 +30,22 @@ int main() {
 
         if (s->din_size() == 0) {
             Simple::din_type din;
-            din.arg0 = rand() % 1000;
+            din.arg0 = i; //rand() % 1000;
             s->din_nonblock(din);
             q.push_back(din.arg0);
-            // printf("-> %u (%u)\n", din.arg0, i);
+            printf("-> %u (%u)\n", din.arg0, i);
             i++;
-        } else if (s->dout_nonblock(&dout)) {
+        } else if (
+                ((rand() & 0xFF) == 0) &&
+                s->dout_nonblock(&dout)) {
             int correct = q.front();
             q.pop_front();
             if (dout.arg0 == correct) {
-                // printf("%u: %d, %d\n", outCounter, dout.arg0, correct);
-            } else 
+                printf("%u: %d, %d\n", outCounter, dout.arg0, correct);
+            } else {
+                errors ++;
                 printf("%u: %d, %d (ERROR)\n", outCounter, dout.arg0, correct);
+            }
             outCounter++;
         } else {
             s->run(1);
@@ -57,9 +62,11 @@ int main() {
             int correct = q.front();
             q.pop_front();
             if (dout.arg0 == correct) {
-                // printf("%u: %d, %d (rdonly)\n", outCounter, dout.arg0, correct);
-            } else 
+                printf("%u: %d, %d (rdonly)\n", outCounter, dout.arg0, correct);
+            } else {
+                errors++;
                 printf("%u: %d, %d (rdonly, ERROR)\n", outCounter, dout.arg0, correct);
+            }
             outCounter++;
             fflush(stdout);
         } else {
@@ -69,6 +76,7 @@ int main() {
 
     uint64_t stop = s->cycles();
     printf("Took %lu cycles to run\n", stop - start);
+    printf("%u errors\n", errors);
 
     close_debug();
 

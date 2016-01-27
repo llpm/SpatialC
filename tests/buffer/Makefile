@@ -1,4 +1,4 @@
-OPTS=
+OPTS=--schedule=1
 CFLAGS=-O0
 CXXFLAGS=${CFLAGS} -std=c++1y
 
@@ -11,9 +11,7 @@ OPT=../../bin/llvm/bin/opt
 NAME=simple
 ROOT=Simple
 
-default: ${NAME}_test ${ROOT}.pdf ${ROOT}_simple.pdf
-
-
+default: ${NAME}_test ${ROOT}_simple.pdf
 
 obj/${ROOT}.hpp: ${NAME}.sc ../../bin/spatialc
 	../../bin/spatialc -I. -m ${NAME}.${ROOT} ${OPTS}

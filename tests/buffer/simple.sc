@@ -30,8 +30,12 @@ module Buffer (
             startNext = 0;
         }
 
-        buffer[start] <- data;
-        start <- startNext;
+        xact {
+            buffer[start] <- data;
+        }
+        xact {
+            start <- startNext;
+        }
 
         var end = end;
         var trueStart = startNext;
@@ -74,7 +78,7 @@ module Simple {
     input void flush;
     output int dout;
 
-    mod Buffer!(Type=type int, Size=64, Threshold=32) buffer;
+    mod Buffer!(Type=type int, Size=16, Threshold=1) buffer;
 
     connect din -> buffer.din;
     connect buffer.dout -> dout;
