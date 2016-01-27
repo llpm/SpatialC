@@ -12,7 +12,8 @@ AddOption('--llpm', action='store', type='string', dest='llpm', nargs=1,
 LlpmPath = GetOption('llpm')
 print "Using LLPM tree at:", LlpmPath
 
-LibPaths = [".", "./bin/", LlpmPath + "bin/llvm/lib", LlpmPath + "bin/"]
+LibPaths = [".", "./bin/", LlpmPath + "bin/llvm/lib",
+            LlpmPath + "bin/", LlpmPath + "bin/flopc++/lib"]
 CxxLdFlags = """
 -g -pthread -fno-omit-frame-pointer -Wno-unused-parameter
 """.split()
@@ -25,7 +26,7 @@ env = Environment(
             -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS """.split()
             + CxxLdFlags,
     LIBS="""tinyxml2 boost_program_options boost_filesystem boost_system
-            LLVM-3.7 llpm link_hacks""".split(),
+            LLVM-3.7 llpm link_hacks FlopCpp OsiCbc""".split(),
     LIBPATH=LibPaths,
     LINKFLAGS=[]
               + CxxLdFlags
