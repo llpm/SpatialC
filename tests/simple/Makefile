@@ -1,5 +1,5 @@
 OPTS=
-CFLAGS=-O0
+CFLAGS=-O0 -g
 CXXFLAGS=${CFLAGS}
 
 CLANGXX=../../bin/llvm/bin/clang++
