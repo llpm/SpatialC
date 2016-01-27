@@ -78,7 +78,7 @@ module Simple {
     input void flush;
     output int dout;
 
-    mod Buffer!(Type=type int, Size=16, Threshold=1) buffer;
+    mod Buffer!(Type=type int, Size=32, Threshold=12) buffer;
 
     connect din -> buffer.din;
     connect buffer.dout -> dout;
