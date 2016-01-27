@@ -545,7 +545,7 @@ void Event::processBlock(Context& ctxt, ::Block* blockSorta) {
             writeWait->newControl(conns(), write);
         }
         if (ctxt.parent() != nullptr && ctxt.parent()->ev() != nullptr) {
-            ctxt.pushControlSignal(writeWait->dout());
+            ctxt.parent()->pushControlSignal(writeWait->dout());
         }
 
         // Note: I'm assuming ctxt is unused after this call and will be
