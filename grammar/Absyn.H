@@ -16,6 +16,7 @@ typedef std::string Ident;
 
 
 typedef std::string Id;
+typedef std::string HexInteger;
 
 
 /********************   Forward Declarations    ********************/
@@ -110,6 +111,7 @@ class EVoid;
 class ETrue;
 class EFalse;
 class EInt;
+class EHex;
 class EDouble;
 class EString;
 class EStructLiteral;
@@ -118,6 +120,14 @@ class EId;
 class EArrAcc;
 class ESlice;
 class EDot;
+class ENeg;
+class EAndB;
+class EOrB;
+class EXOR;
+class EShR;
+class EShL;
+class ERotR;
+class ERotL;
 class ETimes;
 class EDiv;
 class EPlus;
@@ -253,6 +263,7 @@ public:
   virtual void visitETrue(ETrue *p) = 0;
   virtual void visitEFalse(EFalse *p) = 0;
   virtual void visitEInt(EInt *p) = 0;
+  virtual void visitEHex(EHex *p) = 0;
   virtual void visitEDouble(EDouble *p) = 0;
   virtual void visitEString(EString *p) = 0;
   virtual void visitEStructLiteral(EStructLiteral *p) = 0;
@@ -261,6 +272,14 @@ public:
   virtual void visitEArrAcc(EArrAcc *p) = 0;
   virtual void visitESlice(ESlice *p) = 0;
   virtual void visitEDot(EDot *p) = 0;
+  virtual void visitENeg(ENeg *p) = 0;
+  virtual void visitEAndB(EAndB *p) = 0;
+  virtual void visitEOrB(EOrB *p) = 0;
+  virtual void visitEXOR(EXOR *p) = 0;
+  virtual void visitEShR(EShR *p) = 0;
+  virtual void visitEShL(EShL *p) = 0;
+  virtual void visitERotR(ERotR *p) = 0;
+  virtual void visitERotL(ERotL *p) = 0;
   virtual void visitETimes(ETimes *p) = 0;
   virtual void visitEDiv(EDiv *p) = 0;
   virtual void visitEPlus(EPlus *p) = 0;
@@ -307,6 +326,7 @@ public:
   virtual void visitString(String x) = 0;
   virtual void visitIdent(Ident x) = 0;
   virtual void visitId(Id x) = 0;
+  virtual void visitHexInteger(HexInteger x) = 0;
 
 };
 
@@ -1430,6 +1450,20 @@ public:
   void swap(EInt &);
 };
 
+class EHex : public Exp
+{
+public:
+  HexInteger hexinteger_;
+
+  EHex(const EHex &);
+  EHex &operator=(const EHex &);
+  EHex(HexInteger p1);
+  ~EHex();
+  virtual void accept(Visitor *v);
+  virtual EHex *clone() const;
+  void swap(EHex &);
+};
+
 class EDouble : public Exp
 {
 public:
@@ -1545,6 +1579,125 @@ public:
   virtual void accept(Visitor *v);
   virtual EDot *clone() const;
   void swap(EDot &);
+};
+
+class ENeg : public Exp
+{
+public:
+  Exp *exp_;
+
+  ENeg(const ENeg &);
+  ENeg &operator=(const ENeg &);
+  ENeg(Exp *p1);
+  ~ENeg();
+  virtual void accept(Visitor *v);
+  virtual ENeg *clone() const;
+  void swap(ENeg &);
+};
+
+class EAndB : public Exp
+{
+public:
+  Exp *exp_1;
+  Exp *exp_2;
+
+  EAndB(const EAndB &);
+  EAndB &operator=(const EAndB &);
+  EAndB(Exp *p1, Exp *p2);
+  ~EAndB();
+  virtual void accept(Visitor *v);
+  virtual EAndB *clone() const;
+  void swap(EAndB &);
+};
+
+class EOrB : public Exp
+{
+public:
+  Exp *exp_1;
+  Exp *exp_2;
+
+  EOrB(const EOrB &);
+  EOrB &operator=(const EOrB &);
+  EOrB(Exp *p1, Exp *p2);
+  ~EOrB();
+  virtual void accept(Visitor *v);
+  virtual EOrB *clone() const;
+  void swap(EOrB &);
+};
+
+class EXOR : public Exp
+{
+public:
+  Exp *exp_1;
+  Exp *exp_2;
+
+  EXOR(const EXOR &);
+  EXOR &operator=(const EXOR &);
+  EXOR(Exp *p1, Exp *p2);
+  ~EXOR();
+  virtual void accept(Visitor *v);
+  virtual EXOR *clone() const;
+  void swap(EXOR &);
+};
+
+class EShR : public Exp
+{
+public:
+  Exp *exp_1;
+  Exp *exp_2;
+
+  EShR(const EShR &);
+  EShR &operator=(const EShR &);
+  EShR(Exp *p1, Exp *p2);
+  ~EShR();
+  virtual void accept(Visitor *v);
+  virtual EShR *clone() const;
+  void swap(EShR &);
+};
+
+class EShL : public Exp
+{
+public:
+  Exp *exp_1;
+  Exp *exp_2;
+
+  EShL(const EShL &);
+  EShL &operator=(const EShL &);
+  EShL(Exp *p1, Exp *p2);
+  ~EShL();
+  virtual void accept(Visitor *v);
+  virtual EShL *clone() const;
+  void swap(EShL &);
+};
+
+class ERotR : public Exp
+{
+public:
+  Exp *exp_1;
+  Exp *exp_2;
+
+  ERotR(const ERotR &);
+  ERotR &operator=(const ERotR &);
+  ERotR(Exp *p1, Exp *p2);
+  ~ERotR();
+  virtual void accept(Visitor *v);
+  virtual ERotR *clone() const;
+  void swap(ERotR &);
+};
+
+class ERotL : public Exp
+{
+public:
+  Exp *exp_1;
+  Exp *exp_2;
+
+  ERotL(const ERotL &);
+  ERotL &operator=(const ERotL &);
+  ERotL(Exp *p1, Exp *p2);
+  ~ERotL();
+  virtual void accept(Visitor *v);
+  virtual ERotL *clone() const;
+  void swap(ERotL &);
 };
 
 class ETimes : public Exp

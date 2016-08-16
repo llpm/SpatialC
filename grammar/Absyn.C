@@ -2892,6 +2892,49 @@ EInt *EInt::clone() const
 
 
 
+/********************   EHex    ********************/
+EHex::EHex(HexInteger p1)
+{
+  hexinteger_ = p1;
+
+}
+
+EHex::EHex(const EHex & other)
+{
+  hexinteger_ = other.hexinteger_;
+
+}
+
+EHex &EHex::operator=(const EHex & other)
+{
+  EHex tmp(other);
+  swap(tmp);
+  return *this;
+}
+
+void EHex::swap(EHex & other)
+{
+  std::swap(hexinteger_, other.hexinteger_);
+
+}
+
+EHex::~EHex()
+{
+
+}
+
+void EHex::accept(Visitor *v)
+{
+  v->visitEHex(this);
+}
+
+EHex *EHex::clone() const
+{
+  return new EHex(*this);
+}
+
+
+
 /********************   EDouble    ********************/
 EDouble::EDouble(Double p1)
 {
@@ -3256,6 +3299,386 @@ void EDot::accept(Visitor *v)
 EDot *EDot::clone() const
 {
   return new EDot(*this);
+}
+
+
+
+/********************   ENeg    ********************/
+ENeg::ENeg(Exp *p1)
+{
+  exp_ = p1;
+
+}
+
+ENeg::ENeg(const ENeg & other)
+{
+  exp_ = other.exp_->clone();
+
+}
+
+ENeg &ENeg::operator=(const ENeg & other)
+{
+  ENeg tmp(other);
+  swap(tmp);
+  return *this;
+}
+
+void ENeg::swap(ENeg & other)
+{
+  std::swap(exp_, other.exp_);
+
+}
+
+ENeg::~ENeg()
+{
+  delete(exp_);
+
+}
+
+void ENeg::accept(Visitor *v)
+{
+  v->visitENeg(this);
+}
+
+ENeg *ENeg::clone() const
+{
+  return new ENeg(*this);
+}
+
+
+
+/********************   EAndB    ********************/
+EAndB::EAndB(Exp *p1, Exp *p2)
+{
+  exp_1 = p1;
+  exp_2 = p2;
+
+}
+
+EAndB::EAndB(const EAndB & other)
+{
+  exp_1 = other.exp_1->clone();
+  exp_2 = other.exp_2->clone();
+
+}
+
+EAndB &EAndB::operator=(const EAndB & other)
+{
+  EAndB tmp(other);
+  swap(tmp);
+  return *this;
+}
+
+void EAndB::swap(EAndB & other)
+{
+  std::swap(exp_1, other.exp_1);
+  std::swap(exp_2, other.exp_2);
+
+}
+
+EAndB::~EAndB()
+{
+  delete(exp_1);
+  delete(exp_2);
+
+}
+
+void EAndB::accept(Visitor *v)
+{
+  v->visitEAndB(this);
+}
+
+EAndB *EAndB::clone() const
+{
+  return new EAndB(*this);
+}
+
+
+
+/********************   EOrB    ********************/
+EOrB::EOrB(Exp *p1, Exp *p2)
+{
+  exp_1 = p1;
+  exp_2 = p2;
+
+}
+
+EOrB::EOrB(const EOrB & other)
+{
+  exp_1 = other.exp_1->clone();
+  exp_2 = other.exp_2->clone();
+
+}
+
+EOrB &EOrB::operator=(const EOrB & other)
+{
+  EOrB tmp(other);
+  swap(tmp);
+  return *this;
+}
+
+void EOrB::swap(EOrB & other)
+{
+  std::swap(exp_1, other.exp_1);
+  std::swap(exp_2, other.exp_2);
+
+}
+
+EOrB::~EOrB()
+{
+  delete(exp_1);
+  delete(exp_2);
+
+}
+
+void EOrB::accept(Visitor *v)
+{
+  v->visitEOrB(this);
+}
+
+EOrB *EOrB::clone() const
+{
+  return new EOrB(*this);
+}
+
+
+
+/********************   EXOR    ********************/
+EXOR::EXOR(Exp *p1, Exp *p2)
+{
+  exp_1 = p1;
+  exp_2 = p2;
+
+}
+
+EXOR::EXOR(const EXOR & other)
+{
+  exp_1 = other.exp_1->clone();
+  exp_2 = other.exp_2->clone();
+
+}
+
+EXOR &EXOR::operator=(const EXOR & other)
+{
+  EXOR tmp(other);
+  swap(tmp);
+  return *this;
+}
+
+void EXOR::swap(EXOR & other)
+{
+  std::swap(exp_1, other.exp_1);
+  std::swap(exp_2, other.exp_2);
+
+}
+
+EXOR::~EXOR()
+{
+  delete(exp_1);
+  delete(exp_2);
+
+}
+
+void EXOR::accept(Visitor *v)
+{
+  v->visitEXOR(this);
+}
+
+EXOR *EXOR::clone() const
+{
+  return new EXOR(*this);
+}
+
+
+
+/********************   EShR    ********************/
+EShR::EShR(Exp *p1, Exp *p2)
+{
+  exp_1 = p1;
+  exp_2 = p2;
+
+}
+
+EShR::EShR(const EShR & other)
+{
+  exp_1 = other.exp_1->clone();
+  exp_2 = other.exp_2->clone();
+
+}
+
+EShR &EShR::operator=(const EShR & other)
+{
+  EShR tmp(other);
+  swap(tmp);
+  return *this;
+}
+
+void EShR::swap(EShR & other)
+{
+  std::swap(exp_1, other.exp_1);
+  std::swap(exp_2, other.exp_2);
+
+}
+
+EShR::~EShR()
+{
+  delete(exp_1);
+  delete(exp_2);
+
+}
+
+void EShR::accept(Visitor *v)
+{
+  v->visitEShR(this);
+}
+
+EShR *EShR::clone() const
+{
+  return new EShR(*this);
+}
+
+
+
+/********************   EShL    ********************/
+EShL::EShL(Exp *p1, Exp *p2)
+{
+  exp_1 = p1;
+  exp_2 = p2;
+
+}
+
+EShL::EShL(const EShL & other)
+{
+  exp_1 = other.exp_1->clone();
+  exp_2 = other.exp_2->clone();
+
+}
+
+EShL &EShL::operator=(const EShL & other)
+{
+  EShL tmp(other);
+  swap(tmp);
+  return *this;
+}
+
+void EShL::swap(EShL & other)
+{
+  std::swap(exp_1, other.exp_1);
+  std::swap(exp_2, other.exp_2);
+
+}
+
+EShL::~EShL()
+{
+  delete(exp_1);
+  delete(exp_2);
+
+}
+
+void EShL::accept(Visitor *v)
+{
+  v->visitEShL(this);
+}
+
+EShL *EShL::clone() const
+{
+  return new EShL(*this);
+}
+
+
+
+/********************   ERotR    ********************/
+ERotR::ERotR(Exp *p1, Exp *p2)
+{
+  exp_1 = p1;
+  exp_2 = p2;
+
+}
+
+ERotR::ERotR(const ERotR & other)
+{
+  exp_1 = other.exp_1->clone();
+  exp_2 = other.exp_2->clone();
+
+}
+
+ERotR &ERotR::operator=(const ERotR & other)
+{
+  ERotR tmp(other);
+  swap(tmp);
+  return *this;
+}
+
+void ERotR::swap(ERotR & other)
+{
+  std::swap(exp_1, other.exp_1);
+  std::swap(exp_2, other.exp_2);
+
+}
+
+ERotR::~ERotR()
+{
+  delete(exp_1);
+  delete(exp_2);
+
+}
+
+void ERotR::accept(Visitor *v)
+{
+  v->visitERotR(this);
+}
+
+ERotR *ERotR::clone() const
+{
+  return new ERotR(*this);
+}
+
+
+
+/********************   ERotL    ********************/
+ERotL::ERotL(Exp *p1, Exp *p2)
+{
+  exp_1 = p1;
+  exp_2 = p2;
+
+}
+
+ERotL::ERotL(const ERotL & other)
+{
+  exp_1 = other.exp_1->clone();
+  exp_2 = other.exp_2->clone();
+
+}
+
+ERotL &ERotL::operator=(const ERotL & other)
+{
+  ERotL tmp(other);
+  swap(tmp);
+  return *this;
+}
+
+void ERotL::swap(ERotL & other)
+{
+  std::swap(exp_1, other.exp_1);
+  std::swap(exp_2, other.exp_2);
+
+}
+
+ERotL::~ERotL()
+{
+  delete(exp_1);
+  delete(exp_2);
+
+}
+
+void ERotL::accept(Visitor *v)
+{
+  v->visitERotL(this);
+}
+
+ERotL *ERotL::clone() const
+{
+  return new ERotL(*this);
 }
 
 

@@ -14,6 +14,7 @@ struct Expression {
     static ValTy eval(const Context&, ETrue*);
     static ValTy eval(const Context&, EFalse*);
     static ValTy eval(const Context&, EInt* exp);
+    static ValTy eval(const Context&, EHex* exp);
     static ValTy eval(const Context&, EDouble* exp);
     static ValTy evalId(const Context&, std::string id);
     static ValTy eval(const Context&, EId* exp);
@@ -23,6 +24,13 @@ struct Expression {
     static ValTy eval(const Context&, EDot* exp);
     static ValTy eval(const Context&, EPlus* exp);
     static ValTy eval(const Context&, EMinus* exp);
+
+    static ValTy eval(const Context&, EXOR* exp);
+    static ValTy eval(const Context&, EShR* exp);
+    static ValTy eval(const Context&, EShL* exp);
+    static ValTy eval(const Context&, ERotR* exp);
+    static ValTy eval(const Context&, ERotL* exp);
+
     static ValTy eval(const Context&, EDiv* exp);
     static ValTy eval(const Context&, ETimes* exp);
     static ValTy eval(const Context&, ELt* exp);
@@ -33,6 +41,9 @@ struct Expression {
     static ValTy eval(const Context&, ENEq* exp);
     static ValTy eval(const Context&, EAnd* exp);
     static ValTy eval(const Context&, EOr* exp);
+    static ValTy eval(const Context&, EAndB* exp);
+    static ValTy eval(const Context&, EOrB* exp);
+    static ValTy eval(const Context&, ENeg* exp);
 
     static llpm::OutputPort* truncOrExtend(
         const Context&, llpm::OutputPort* op, llvm::Type* ty);

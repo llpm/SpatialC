@@ -158,9 +158,17 @@ Package* pPackage(const char *str);
 #define _SYMB_55 314
 #define _SYMB_56 315
 #define _SYMB_57 316
-#define _STRING_ 317
-#define _INTEGER_ 318
-#define _DOUBLE_ 319
+#define _SYMB_58 317
+#define _SYMB_59 318
+#define _SYMB_60 319
+#define _SYMB_61 320
+#define _SYMB_62 321
+#define _SYMB_63 322
+#define _SYMB_64 323
+#define _SYMB_65 324
+#define _STRING_ 325
+#define _INTEGER_ 326
+#define _DOUBLE_ 327
 
 extern YYSTYPE yylval;
 

@@ -55,6 +55,17 @@ ValTy Expression::eval(const Context& ctxt, EInt* exp) {
                     llvm::APInt(sizeof(Integer) * 8, i))))->dout(),
         exp);
 }
+ValTy Expression::eval(const Context& ctxt, EHex* exp) {
+    HexInteger hi = exp->hexinteger_;
+    unsigned long long i = std::stoull(hi, 0, 16);
+    return nameWrap(
+        (new llpm::Constant(
+                llvm::Constant::getIntegerValue(
+                    llvm::Type::getIntNTy(ctxt.llvmCtxt(),
+                                          sizeof(unsigned long long) * 8),
+                    llvm::APInt(sizeof(unsigned long long) * 8, i))))->dout(),
+        exp);
+}
 ValTy Expression::eval(const Context& ctxt, EDouble* exp) {
     Double d = exp->double_;
     return nameWrap(
@@ -257,7 +268,7 @@ ValTy Expression::eval(const Context& ctxt, EDot* exp) {
 
 template<typename IntOp>
 struct CreateOp {
-    void operator()(Exp* exp, ValTy a, ValTy b,
+    void operator()(const Context& ctxt, Exp* exp, ValTy a, ValTy b,
                          InputPort*& ain, ValTy& aout) {
         if (a.val->type()->isIntegerTy() &&
             b.val->type()->isIntegerTy()) {
@@ -274,7 +285,7 @@ struct CreateOp {
 
 template<typename IntOp>
 struct CreateOpVec {
-    void operator()(Exp* exp, ValTy a, ValTy b,
+    void operator()(const Context& ctxt, Exp* exp, ValTy a, ValTy b,
                     InputPort*& ain, ValTy& aout) {
         if (a.val->type()->isIntegerTy() &&
             b.val->type()->isIntegerTy()) {
@@ -289,7 +300,7 @@ struct CreateOpVec {
     }
 };
 
-template<typename Create>
+template<typename Create, bool ExtA = false, bool ExtB = false>
 ValTy evalBinOp(const Context& ctxt,
                              Exp* exp,
                              Exp* exp1, Exp* exp2) {
@@ -298,9 +309,19 @@ ValTy evalBinOp(const Context& ctxt,
     InputPort* ain;
     ValTy aout;
     Create c;
-    c(exp, a, b, ain, aout); 
-    ctxt.conns()->connect(a.val, ain->join(*ctxt.conns(), 0));
-    ctxt.conns()->connect(b.val, ain->join(*ctxt.conns(), 1));
+    c(ctxt, exp, a, b, ain, aout); 
+
+    auto aport = ain->join(*ctxt.conns(), 0);
+    if (ExtA && aport->type()->getIntegerBitWidth() != a.val->type()->getIntegerBitWidth()) {
+        a = Expression::truncOrExtend(ctxt, a, Type(aport->type()));
+    }
+    ctxt.conns()->connect(a.val, aport);
+
+    auto bport = ain->join(*ctxt.conns(), 1);
+    if (ExtB && bport->type()->getIntegerBitWidth() != b.val->type()->getIntegerBitWidth()) {
+        b = Expression::truncOrExtend(ctxt, b, Type(bport->type()));
+    }
+    ctxt.conns()->connect(b.val, bport);
     return nameWrap( aout, exp );
 }
 
@@ -314,8 +335,41 @@ ValTy Expression::eval(const Context& ctxt, EMinus* exp) {
         ctxt, exp, exp->exp_1, exp->exp_2);
 }
 
+template<Shift::Direction direction, Shift::Style style>
+struct CreateShiftOp {
+    void operator()(const Context& ctxt, Exp* exp, ValTy a, ValTy b,
+                         InputPort*& ain, ValTy& aout) {
+        if (a.val->type()->isIntegerTy() &&
+            b.val->type()->isIntegerTy()) {
+            auto add = new Shift(a.val->type(), direction, style);
+            ain = add->din();
+            aout = add->dout();
+        } else {
+            throw CodeError(
+                "Cannot resolve add operator",
+                exp->line_number);
+        }
+    }
+};
+ValTy Expression::eval(const Context& ctxt, EShR* exp) {
+    return evalBinOp<CreateShiftOp<Shift::Right, Shift::Logical>, false, true>(
+        ctxt, exp, exp->exp_1, exp->exp_2);
+}
+ValTy Expression::eval(const Context& ctxt, EShL* exp) {
+    return evalBinOp<CreateShiftOp<Shift::Left, Shift::Logical>, false, true>(
+        ctxt, exp, exp->exp_1, exp->exp_2);
+}
+ValTy Expression::eval(const Context& ctxt, ERotR* exp) {
+    return evalBinOp<CreateShiftOp<Shift::Right, Shift::Rotating>, false, true>(
+        ctxt, exp, exp->exp_1, exp->exp_2);
+}
+ValTy Expression::eval(const Context& ctxt, ERotL* exp) {
+    return evalBinOp<CreateShiftOp<Shift::Left, Shift::Rotating>, false, true>(
+        ctxt, exp, exp->exp_1, exp->exp_2);
+}
+
 struct CreateDivide {
-    void operator()(Exp* exp, ValTy a, ValTy b,
+    void operator()(const Context& ctxt, Exp* exp, ValTy a, ValTy b,
                          InputPort*& ain, ValTy& aout) {
         if (a.val->type()->isIntegerTy() &&
             b.val->type()->isIntegerTy()) {
@@ -342,7 +396,7 @@ ValTy Expression::eval(const Context& ctxt, ETimes* exp) {
 
 template<IntCompare::Cmp CmpType>
 struct CreateCompare {
-    void operator()(Exp* exp, ValTy a, ValTy b,
+    void operator()(const Context& ctxt, Exp* exp, ValTy a, ValTy b,
                     InputPort*& ain, ValTy& aout) {
         if (a.val->type()->isIntegerTy() &&
             b.val->type()->isIntegerTy()) {
@@ -384,19 +438,30 @@ ValTy Expression::eval(const Context& ctxt, ENEq* exp) {
         ctxt, exp, exp->exp_1, exp->exp_2);
 }
 
-template<Bitwise::Op OpType>
+template<Bitwise::Op OpType, bool extend=false>
 struct CreateBitwise {
-    void operator()(Exp* exp, ValTy a, ValTy b,
+    void operator()(const Context& ctxt, Exp* exp, ValTy& a, ValTy& b,
                     InputPort*& ain, ValTy& aout) {
         if (a.val->type()->isIntegerTy() &&
             b.val->type()->isIntegerTy()) {
+
+            if (extend) {
+                auto abw = a.val->type()->getIntegerBitWidth();
+                auto bbw = b.val->type()->getIntegerBitWidth();
+                if (abw > bbw) {
+                    b = Expression::truncOrExtend(ctxt, b, a.ty);
+                } else if (bbw > abw) {
+                    a = Expression::truncOrExtend(ctxt, a, b.ty);
+                }
+            }
+
             // TODO: Figure out if this is a signed comparison!
             auto add = new Bitwise(2, a.val->type(), OpType);
             ain = add->din();
             aout = add->dout();
         } else {
             throw CodeError(
-                "Cannot resolve add operator",
+                "Cannot resolve bitwise operator -- operands are not ints",
                 exp->line_number);
         }
     }
@@ -411,6 +476,27 @@ ValTy Expression::eval(const Context& ctxt, EOr* exp) {
         ctxt, exp, exp->exp_1, exp->exp_2);
 }
 
+ValTy Expression::eval(const Context& ctxt, EAndB* exp) {
+    return evalBinOp<CreateBitwise<Bitwise::AND, true>>(
+        ctxt, exp, exp->exp_1, exp->exp_2);
+}
+ValTy Expression::eval(const Context& ctxt, EOrB* exp) {
+    return evalBinOp<CreateBitwise<Bitwise::OR, true>>(
+        ctxt, exp, exp->exp_1, exp->exp_2);
+}
+ValTy Expression::eval(const Context& ctxt, EXOR* exp) {
+    return evalBinOp<CreateBitwise<Bitwise::XOR, true>>(
+        ctxt, exp, exp->exp_1, exp->exp_2);
+}
+
+
+ValTy Expression::eval(const Context& ctxt, ENeg* exp) {
+    auto a = Expression::evalExpression(ctxt, exp->exp_);
+    auto neg = new Negate(a.val->type());
+    ctxt.conns()->connect(a.val, neg->din());
+    return nameWrap(ValTy(neg->dout(), a.ty), exp);
+}
+
 ValTy Expression::evalExpression(const Context& ctxt, Exp* exp) {
     #define TYPE_EXP_PROCESS(TY) { \
         auto tyExp = dynamic_cast<TY*>(exp); \
@@ -421,6 +507,7 @@ ValTy Expression::evalExpression(const Context& ctxt, Exp* exp) {
     TYPE_EXP_PROCESS(ETrue);
     TYPE_EXP_PROCESS(EFalse);
     TYPE_EXP_PROCESS(EInt);
+    TYPE_EXP_PROCESS(EHex);
     TYPE_EXP_PROCESS(EDouble);
     TYPE_EXP_PROCESS(EId);
 
@@ -429,6 +516,14 @@ ValTy Expression::evalExpression(const Context& ctxt, Exp* exp) {
 
     TYPE_EXP_PROCESS(EStructLiteral);
     TYPE_EXP_PROCESS(EVectorLiteral);
+
+
+    TYPE_EXP_PROCESS(ETimes);
+    TYPE_EXP_PROCESS(EXOR);
+    TYPE_EXP_PROCESS(EShR);
+    TYPE_EXP_PROCESS(EShL);
+    TYPE_EXP_PROCESS(ERotR);
+    TYPE_EXP_PROCESS(ERotL);
 
     TYPE_EXP_PROCESS(EPlus);
     TYPE_EXP_PROCESS(EMinus);
@@ -442,6 +537,9 @@ ValTy Expression::evalExpression(const Context& ctxt, Exp* exp) {
     TYPE_EXP_PROCESS(ENEq);
     TYPE_EXP_PROCESS(EAnd);
     TYPE_EXP_PROCESS(EOr);
+    TYPE_EXP_PROCESS(EAndB);
+    TYPE_EXP_PROCESS(EOrB);
+    TYPE_EXP_PROCESS(ENeg);
 
 
     throw CodeError("Could not translate expression",

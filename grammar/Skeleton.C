@@ -36,930 +36,1009 @@ void Skeleton::visitType(Type *t) {} //abstract class
 void Skeleton::visitTemplateExp(TemplateExp *t) {} //abstract class
 void Skeleton::visitTemplateArg(TemplateArg *t) {} //abstract class
 
-void Skeleton::visitPDefs(PDefs *pdefs)
+void Skeleton::visitPDefs(PDefs *p_defs)
 {
   /* Code For PDefs Goes Here */
 
-  pdefs->listdef_->accept(this);
+  p_defs->listdef_->accept(this);
 
 }
 
-void Skeleton::visitDefImport(DefImport *defimport)
+void Skeleton::visitDefImport(DefImport *def_import)
 {
   /* Code For DefImport Goes Here */
 
-  defimport->listpackagename_->accept(this);
+  def_import->listpackagename_->accept(this);
 
 }
 
-void Skeleton::visitDefPackage(DefPackage *defpackage)
+void Skeleton::visitDefPackage(DefPackage *def_package)
 {
   /* Code For DefPackage Goes Here */
 
-  defpackage->listpackagename_->accept(this);
+  def_package->listpackagename_->accept(this);
 
 }
 
-void Skeleton::visitDefModule(DefModule *defmodule)
+void Skeleton::visitDefModule(DefModule *def_module)
 {
   /* Code For DefModule Goes Here */
 
-  visitId(defmodule->id_);
-  defmodule->metaparamdecl_->accept(this);
-  defmodule->listmoddef_->accept(this);
+  visitId(def_module->id_);
+  def_module->metaparamdecl_->accept(this);
+  def_module->listmoddef_->accept(this);
 
 }
 
-void Skeleton::visitDefStruct(DefStruct *defstruct)
+void Skeleton::visitDefStruct(DefStruct *def_struct)
 {
   /* Code For DefStruct Goes Here */
 
-  visitId(defstruct->id_);
-  defstruct->metaparamdecl_->accept(this);
-  defstruct->liststructdef_->accept(this);
+  visitId(def_struct->id_);
+  def_struct->metaparamdecl_->accept(this);
+  def_struct->liststructdef_->accept(this);
 
 }
 
-void Skeleton::visitNoParams(NoParams *noparams)
+void Skeleton::visitNoParams(NoParams *no_params)
 {
   /* Code For NoParams Goes Here */
 
 
 }
 
-void Skeleton::visitSomeParams(SomeParams *someparams)
+void Skeleton::visitSomeParams(SomeParams *some_params)
 {
   /* Code For SomeParams Goes Here */
 
-  someparams->listmetaparam_->accept(this);
+  some_params->listmetaparam_->accept(this);
 
 }
 
-void Skeleton::visitEqExp(EqExp *eqexp)
+void Skeleton::visitEqExp(EqExp *eq_exp)
 {
   /* Code For EqExp Goes Here */
 
-  eqexp->exp_->accept(this);
+  eq_exp->exp_->accept(this);
 
 }
 
-void Skeleton::visitNoEqExp(NoEqExp *noeqexp)
+void Skeleton::visitNoEqExp(NoEqExp *no_eq_exp)
 {
   /* Code For NoEqExp Goes Here */
 
 
 }
 
-void Skeleton::visitMetaParam1(MetaParam1 *metaparam1)
+void Skeleton::visitMetaParam1(MetaParam1 *meta_param)
 {
   /* Code For MetaParam1 Goes Here */
 
-  metaparam1->type_->accept(this);
-  visitId(metaparam1->id_);
-  metaparam1->optionaleqexp_->accept(this);
+  meta_param->type_->accept(this);
+  visitId(meta_param->id_);
+  meta_param->optionaleqexp_->accept(this);
 
 }
 
-void Skeleton::visitDefConst(DefConst *defconst)
+void Skeleton::visitDefConst(DefConst *def_const)
 {
   /* Code For DefConst Goes Here */
 
-  defconst->type_->accept(this);
-  visitId(defconst->id_);
-  defconst->optionaleqexp_->accept(this);
+  def_const->type_->accept(this);
+  visitId(def_const->id_);
+  def_const->optionaleqexp_->accept(this);
 
 }
 
-void Skeleton::visitDefReg(DefReg *defreg)
+void Skeleton::visitDefReg(DefReg *def_reg)
 {
   /* Code For DefReg Goes Here */
 
-  defreg->type_->accept(this);
-  visitId(defreg->id_);
+  def_reg->type_->accept(this);
+  visitId(def_reg->id_);
 
 }
 
-void Skeleton::visitDefMem(DefMem *defmem)
+void Skeleton::visitDefMem(DefMem *def_mem)
 {
   /* Code For DefMem Goes Here */
 
-  defmem->type_->accept(this);
-  visitId(defmem->id_);
+  def_mem->type_->accept(this);
+  visitId(def_mem->id_);
 
 }
 
-void Skeleton::visitDefSubmodule(DefSubmodule *defsubmodule)
+void Skeleton::visitDefSubmodule(DefSubmodule *def_submodule)
 {
   /* Code For DefSubmodule Goes Here */
 
-  defsubmodule->type_->accept(this);
-  visitId(defsubmodule->id_);
+  def_submodule->type_->accept(this);
+  visitId(def_submodule->id_);
 
 }
 
-void Skeleton::visitDefInput(DefInput *definput)
+void Skeleton::visitDefInput(DefInput *def_input)
 {
   /* Code For DefInput Goes Here */
 
-  definput->type_->accept(this);
-  visitId(definput->id_);
+  def_input->type_->accept(this);
+  visitId(def_input->id_);
 
 }
 
-void Skeleton::visitDefOutput(DefOutput *defoutput)
+void Skeleton::visitDefOutput(DefOutput *def_output)
 {
   /* Code For DefOutput Goes Here */
 
-  defoutput->type_->accept(this);
-  visitId(defoutput->id_);
+  def_output->type_->accept(this);
+  visitId(def_output->id_);
 
 }
 
-void Skeleton::visitDefInternal(DefInternal *definternal)
+void Skeleton::visitDefInternal(DefInternal *def_internal)
 {
   /* Code For DefInternal Goes Here */
 
-  definternal->type_->accept(this);
-  visitId(definternal->id_);
+  def_internal->type_->accept(this);
+  visitId(def_internal->id_);
 
 }
 
-void Skeleton::visitDefEvent(DefEvent *defevent)
+void Skeleton::visitDefEvent(DefEvent *def_event)
 {
   /* Code For DefEvent Goes Here */
 
-  defevent->eventname_->accept(this);
-  defevent->listeventparam_->accept(this);
-  defevent->block_->accept(this);
+  def_event->eventname_->accept(this);
+  def_event->listeventparam_->accept(this);
+  def_event->block_->accept(this);
 
 }
 
-void Skeleton::visitDefInit(DefInit *definit)
+void Skeleton::visitDefInit(DefInit *def_init)
 {
   /* Code For DefInit Goes Here */
 
-  definit->eventname_->accept(this);
-  definit->block_->accept(this);
+  def_init->eventname_->accept(this);
+  def_init->block_->accept(this);
 
 }
 
-void Skeleton::visitDefConnect(DefConnect *defconnect)
+void Skeleton::visitDefConnect(DefConnect *def_connect)
 {
   /* Code For DefConnect Goes Here */
 
-  defconnect->channelspecifier_1->accept(this);
-  defconnect->channelspecifier_2->accept(this);
+  def_connect->channelspecifier_1->accept(this);
+  def_connect->channelspecifier_2->accept(this);
 
 }
 
-void Skeleton::visitDefFor(DefFor *deffor)
+void Skeleton::visitDefFor(DefFor *def_for)
 {
   /* Code For DefFor Goes Here */
 
-  visitId(deffor->id_);
-  deffor->exp_1->accept(this);
-  deffor->exp_2->accept(this);
-  deffor->listmoddef_->accept(this);
+  visitId(def_for->id_);
+  def_for->exp_1->accept(this);
+  def_for->exp_2->accept(this);
+  def_for->listmoddef_->accept(this);
 
 }
 
-void Skeleton::visitDefIf(DefIf *defif)
+void Skeleton::visitDefIf(DefIf *def_if)
 {
   /* Code For DefIf Goes Here */
 
-  defif->exp_->accept(this);
-  defif->listmoddef_->accept(this);
+  def_if->exp_->accept(this);
+  def_if->listmoddef_->accept(this);
 
 }
 
-void Skeleton::visitSimpleCS(SimpleCS *simplecs)
+void Skeleton::visitSimpleCS(SimpleCS *simple_cs)
 {
   /* Code For SimpleCS Goes Here */
 
-  visitId(simplecs->id_);
+  visitId(simple_cs->id_);
 
 }
 
-void Skeleton::visitDotCS(DotCS *dotcs)
+void Skeleton::visitDotCS(DotCS *dot_cs)
 {
   /* Code For DotCS Goes Here */
 
-  visitId(dotcs->id_1);
-  visitId(dotcs->id_2);
+  visitId(dot_cs->id_1);
+  visitId(dot_cs->id_2);
 
 }
 
-void Skeleton::visitArrayDotCS(ArrayDotCS *arraydotcs)
+void Skeleton::visitArrayDotCS(ArrayDotCS *array_dot_cs)
 {
   /* Code For ArrayDotCS Goes Here */
 
-  visitId(arraydotcs->id_1);
-  arraydotcs->exp_->accept(this);
-  visitId(arraydotcs->id_2);
+  visitId(array_dot_cs->id_1);
+  array_dot_cs->exp_->accept(this);
+  visitId(array_dot_cs->id_2);
 
 }
 
-void Skeleton::visitNoEvName(NoEvName *noevname)
+void Skeleton::visitNoEvName(NoEvName *no_ev_name)
 {
   /* Code For NoEvName Goes Here */
 
 
 }
 
-void Skeleton::visitEvName(EvName *evname)
+void Skeleton::visitEvName(EvName *ev_name)
 {
   /* Code For EvName Goes Here */
 
-  visitId(evname->id_);
+  visitId(ev_name->id_);
 
 }
 
-void Skeleton::visitEventParamWithName(EventParamWithName *eventparamwithname)
+void Skeleton::visitEventParamWithName(EventParamWithName *event_param_with_name)
 {
   /* Code For EventParamWithName Goes Here */
 
-  eventparamwithname->eventorcond_->accept(this);
-  visitId(eventparamwithname->id_);
+  event_param_with_name->eventorcond_->accept(this);
+  visitId(event_param_with_name->id_);
 
 }
 
-void Skeleton::visitEventParamNoName(EventParamNoName *eventparamnoname)
+void Skeleton::visitEventParamNoName(EventParamNoName *event_param_no_name)
 {
   /* Code For EventParamNoName Goes Here */
 
-  eventparamnoname->eventorcond_->accept(this);
+  event_param_no_name->eventorcond_->accept(this);
 
 }
 
-void Skeleton::visitCSEventCond(CSEventCond *cseventcond)
+void Skeleton::visitCSEventCond(CSEventCond *cs_event_cond)
 {
   /* Code For CSEventCond Goes Here */
 
-  cseventcond->channelspecifier_->accept(this);
+  cs_event_cond->channelspecifier_->accept(this);
 
 }
 
-void Skeleton::visitListEvOr(ListEvOr *listevor)
+void Skeleton::visitListEvOr(ListEvOr *list_ev_or)
 {
   /* Code For ListEvOr Goes Here */
 
-  listevor->listeventorlist_->accept(this);
+  list_ev_or->listeventorlist_->accept(this);
 
 }
 
-void Skeleton::visitEventOrListChannelSpecifier(EventOrListChannelSpecifier *eventorlistchannelspecifier)
+void Skeleton::visitEventOrListChannelSpecifier(EventOrListChannelSpecifier *event_or_list_channel_specifier)
 {
   /* Code For EventOrListChannelSpecifier Goes Here */
 
-  eventorlistchannelspecifier->channelspecifier_->accept(this);
+  event_or_list_channel_specifier->channelspecifier_->accept(this);
 
 }
 
-void Skeleton::visitDefSubstor(DefSubstor *defsubstor)
+void Skeleton::visitDefSubstor(DefSubstor *def_substor)
 {
   /* Code For DefSubstor Goes Here */
 
-  defsubstor->type_->accept(this);
-  visitId(defsubstor->id_);
+  def_substor->type_->accept(this);
+  visitId(def_substor->id_);
 
 }
 
-void Skeleton::visitDefFunction(DefFunction *deffunction)
+void Skeleton::visitDefFunction(DefFunction *def_function)
 {
   /* Code For DefFunction Goes Here */
 
-  deffunction->type_->accept(this);
-  visitId(deffunction->id_);
-  deffunction->listfuncparam_->accept(this);
-  deffunction->liststatement_->accept(this);
+  def_function->type_->accept(this);
+  visitId(def_function->id_);
+  def_function->listfuncparam_->accept(this);
+  def_function->liststatement_->accept(this);
 
 }
 
-void Skeleton::visitFuncParam1(FuncParam1 *funcparam1)
+void Skeleton::visitFuncParam1(FuncParam1 *func_param)
 {
   /* Code For FuncParam1 Goes Here */
 
-  funcparam1->type_->accept(this);
-  visitId(funcparam1->id_);
+  func_param->type_->accept(this);
+  visitId(func_param->id_);
 
 }
 
-void Skeleton::visitNoType(NoType *notype)
+void Skeleton::visitNoType(NoType *no_type)
 {
   /* Code For NoType Goes Here */
 
 
 }
 
-void Skeleton::visitTypeSpec(TypeSpec *typespec)
+void Skeleton::visitTypeSpec(TypeSpec *type_spec)
 {
   /* Code For TypeSpec Goes Here */
 
-  typespec->type_->accept(this);
+  type_spec->type_->accept(this);
 
 }
 
-void Skeleton::visitVarStmt(VarStmt *varstmt)
+void Skeleton::visitVarStmt(VarStmt *var_stmt)
 {
   /* Code For VarStmt Goes Here */
 
-  varstmt->optionaltype_->accept(this);
-  visitId(varstmt->id_);
-  varstmt->varassignment_->accept(this);
+  var_stmt->optionaltype_->accept(this);
+  visitId(var_stmt->id_);
+  var_stmt->varassignment_->accept(this);
 
 }
 
-void Skeleton::visitAssignStmt(AssignStmt *assignstmt)
+void Skeleton::visitAssignStmt(AssignStmt *assign_stmt)
 {
   /* Code For AssignStmt Goes Here */
 
-  visitId(assignstmt->id_);
-  assignstmt->exp_->accept(this);
+  visitId(assign_stmt->id_);
+  assign_stmt->exp_->accept(this);
 
 }
 
-void Skeleton::visitAssignArrStmt(AssignArrStmt *assignarrstmt)
+void Skeleton::visitAssignArrStmt(AssignArrStmt *assign_arr_stmt)
 {
   /* Code For AssignArrStmt Goes Here */
 
-  visitId(assignarrstmt->id_);
-  assignarrstmt->exp_1->accept(this);
-  assignarrstmt->exp_2->accept(this);
+  visitId(assign_arr_stmt->id_);
+  assign_arr_stmt->exp_1->accept(this);
+  assign_arr_stmt->exp_2->accept(this);
 
 }
 
-void Skeleton::visitIfStmt(IfStmt *ifstmt)
+void Skeleton::visitIfStmt(IfStmt *if_stmt)
 {
   /* Code For IfStmt Goes Here */
 
-  ifstmt->exp_->accept(this);
-  ifstmt->block_->accept(this);
-  ifstmt->elseblock_->accept(this);
+  if_stmt->exp_->accept(this);
+  if_stmt->block_->accept(this);
+  if_stmt->elseblock_->accept(this);
 
 }
 
-void Skeleton::visitBlockStmt(BlockStmt *blockstmt)
+void Skeleton::visitBlockStmt(BlockStmt *block_stmt)
 {
   /* Code For BlockStmt Goes Here */
 
-  blockstmt->block_->accept(this);
+  block_stmt->block_->accept(this);
 
 }
 
-void Skeleton::visitPushStmt(PushStmt *pushstmt)
+void Skeleton::visitPushStmt(PushStmt *push_stmt)
 {
   /* Code For PushStmt Goes Here */
 
-  visitId(pushstmt->id_);
-  pushstmt->pushsubdest_->accept(this);
-  pushstmt->exp_->accept(this);
+  visitId(push_stmt->id_);
+  push_stmt->pushsubdest_->accept(this);
+  push_stmt->exp_->accept(this);
 
 }
 
-void Skeleton::visitStaticForStmt(StaticForStmt *staticforstmt)
+void Skeleton::visitStaticForStmt(StaticForStmt *static_for_stmt)
 {
   /* Code For StaticForStmt Goes Here */
 
-  visitId(staticforstmt->id_);
-  staticforstmt->exp_1->accept(this);
-  staticforstmt->exp_2->accept(this);
-  staticforstmt->block_->accept(this);
+  visitId(static_for_stmt->id_);
+  static_for_stmt->exp_1->accept(this);
+  static_for_stmt->exp_2->accept(this);
+  static_for_stmt->block_->accept(this);
 
 }
 
-void Skeleton::visitStaticIfStmt(StaticIfStmt *staticifstmt)
+void Skeleton::visitStaticIfStmt(StaticIfStmt *static_if_stmt)
 {
   /* Code For StaticIfStmt Goes Here */
 
-  staticifstmt->exp_->accept(this);
-  staticifstmt->block_->accept(this);
+  static_if_stmt->exp_->accept(this);
+  static_if_stmt->block_->accept(this);
 
 }
 
-void Skeleton::visitReturnStmt(ReturnStmt *returnstmt)
+void Skeleton::visitReturnStmt(ReturnStmt *return_stmt)
 {
   /* Code For ReturnStmt Goes Here */
 
-  returnstmt->exp_->accept(this);
+  return_stmt->exp_->accept(this);
 
 }
 
-void Skeleton::visitWaitUntilStmt(WaitUntilStmt *waituntilstmt)
+void Skeleton::visitWaitUntilStmt(WaitUntilStmt *wait_until_stmt)
 {
   /* Code For WaitUntilStmt Goes Here */
 
-  waituntilstmt->exp_->accept(this);
+  wait_until_stmt->exp_->accept(this);
 
 }
 
-void Skeleton::visitPushSubreg(PushSubreg *pushsubreg)
+void Skeleton::visitPushSubreg(PushSubreg *push_subreg)
 {
   /* Code For PushSubreg Goes Here */
 
-  visitId(pushsubreg->id_);
+  visitId(push_subreg->id_);
 
 }
 
-void Skeleton::visitPushArray(PushArray *pusharray)
+void Skeleton::visitPushArray(PushArray *push_array)
 {
   /* Code For PushArray Goes Here */
 
-  pusharray->exp_->accept(this);
+  push_array->exp_->accept(this);
 
 }
 
-void Skeleton::visitPushArrayDot(PushArrayDot *pusharraydot)
+void Skeleton::visitPushArrayDot(PushArrayDot *push_array_dot)
 {
   /* Code For PushArrayDot Goes Here */
 
-  pusharraydot->exp_->accept(this);
-  visitId(pusharraydot->id_);
+  push_array_dot->exp_->accept(this);
+  visitId(push_array_dot->id_);
 
 }
 
-void Skeleton::visitPushReg(PushReg *pushreg)
+void Skeleton::visitPushReg(PushReg *push_reg)
 {
   /* Code For PushReg Goes Here */
 
 
 }
 
-void Skeleton::visitVarAssign(VarAssign *varassign)
+void Skeleton::visitVarAssign(VarAssign *var_assign)
 {
   /* Code For VarAssign Goes Here */
 
-  varassign->exp_->accept(this);
+  var_assign->exp_->accept(this);
 
 }
 
-void Skeleton::visitNoVarAssign(NoVarAssign *novarassign)
+void Skeleton::visitNoVarAssign(NoVarAssign *no_var_assign)
 {
   /* Code For NoVarAssign Goes Here */
 
 
 }
 
-void Skeleton::visitBlock1(Block1 *block1)
+void Skeleton::visitBlock1(Block1 *block)
 {
   /* Code For Block1 Goes Here */
 
-  block1->listblockattr_->accept(this);
-  block1->liststatement_->accept(this);
+  block->listblockattr_->accept(this);
+  block->liststatement_->accept(this);
 
 }
 
-void Skeleton::visitBlockAttr_atomic(BlockAttr_atomic *blockattr_atomic)
+void Skeleton::visitBlockAttr_atomic(BlockAttr_atomic *block_attr_atomic)
 {
   /* Code For BlockAttr_atomic Goes Here */
 
 
 }
 
-void Skeleton::visitBlockAttr_xact(BlockAttr_xact *blockattr_xact)
+void Skeleton::visitBlockAttr_xact(BlockAttr_xact *block_attr_xact)
 {
   /* Code For BlockAttr_xact Goes Here */
 
 
 }
 
-void Skeleton::visitElseIf(ElseIf *elseif)
+void Skeleton::visitElseIf(ElseIf *else_if)
 {
   /* Code For ElseIf Goes Here */
 
-  elseif->exp_->accept(this);
-  elseif->block_->accept(this);
-  elseif->elseblock_->accept(this);
+  else_if->exp_->accept(this);
+  else_if->block_->accept(this);
+  else_if->elseblock_->accept(this);
 
 }
 
-void Skeleton::visitElse(Else *else)
+void Skeleton::visitElse(Else *else_)
 {
   /* Code For Else Goes Here */
 
-  else->block_->accept(this);
+  else_->block_->accept(this);
 
 }
 
-void Skeleton::visitNoElse(NoElse *noelse)
+void Skeleton::visitNoElse(NoElse *no_else)
 {
   /* Code For NoElse Goes Here */
 
 
 }
 
-void Skeleton::visitEVoid(EVoid *evoid)
+void Skeleton::visitEVoid(EVoid *e_void)
 {
   /* Code For EVoid Goes Here */
 
 
 }
 
-void Skeleton::visitETrue(ETrue *etrue)
+void Skeleton::visitETrue(ETrue *e_true)
 {
   /* Code For ETrue Goes Here */
 
 
 }
 
-void Skeleton::visitEFalse(EFalse *efalse)
+void Skeleton::visitEFalse(EFalse *e_false)
 {
   /* Code For EFalse Goes Here */
 
 
 }
 
-void Skeleton::visitEInt(EInt *eint)
+void Skeleton::visitEInt(EInt *e_int)
 {
   /* Code For EInt Goes Here */
 
-  visitInteger(eint->integer_);
+  visitInteger(e_int->integer_);
 
 }
 
-void Skeleton::visitEDouble(EDouble *edouble)
+void Skeleton::visitEHex(EHex *e_hex)
+{
+  /* Code For EHex Goes Here */
+
+  visitHexInteger(e_hex->hexinteger_);
+
+}
+
+void Skeleton::visitEDouble(EDouble *e_double)
 {
   /* Code For EDouble Goes Here */
 
-  visitDouble(edouble->double_);
+  visitDouble(e_double->double_);
 
 }
 
-void Skeleton::visitEString(EString *estring)
+void Skeleton::visitEString(EString *e_string)
 {
   /* Code For EString Goes Here */
 
-  visitString(estring->string_);
+  visitString(e_string->string_);
 
 }
 
-void Skeleton::visitEStructLiteral(EStructLiteral *estructliteral)
+void Skeleton::visitEStructLiteral(EStructLiteral *e_struct_literal)
 {
   /* Code For EStructLiteral Goes Here */
 
-  estructliteral->type_->accept(this);
-  estructliteral->liststructliteralfield_->accept(this);
+  e_struct_literal->type_->accept(this);
+  e_struct_literal->liststructliteralfield_->accept(this);
 
 }
 
-void Skeleton::visitEVectorLiteral(EVectorLiteral *evectorliteral)
+void Skeleton::visitEVectorLiteral(EVectorLiteral *e_vector_literal)
 {
   /* Code For EVectorLiteral Goes Here */
 
-  evectorliteral->listexp_->accept(this);
+  e_vector_literal->listexp_->accept(this);
 
 }
 
-void Skeleton::visitEId(EId *eid)
+void Skeleton::visitEId(EId *e_id)
 {
   /* Code For EId Goes Here */
 
-  visitId(eid->id_);
+  visitId(e_id->id_);
 
 }
 
-void Skeleton::visitEArrAcc(EArrAcc *earracc)
+void Skeleton::visitEArrAcc(EArrAcc *e_arr_acc)
 {
   /* Code For EArrAcc Goes Here */
 
-  earracc->exp_1->accept(this);
-  earracc->exp_2->accept(this);
+  e_arr_acc->exp_1->accept(this);
+  e_arr_acc->exp_2->accept(this);
 
 }
 
-void Skeleton::visitESlice(ESlice *eslice)
+void Skeleton::visitESlice(ESlice *e_slice)
 {
   /* Code For ESlice Goes Here */
 
-  eslice->exp_1->accept(this);
-  eslice->exp_2->accept(this);
-  eslice->exp_3->accept(this);
+  e_slice->exp_1->accept(this);
+  e_slice->exp_2->accept(this);
+  e_slice->exp_3->accept(this);
 
 }
 
-void Skeleton::visitEDot(EDot *edot)
+void Skeleton::visitEDot(EDot *e_dot)
 {
   /* Code For EDot Goes Here */
 
-  edot->exp_->accept(this);
-  visitId(edot->id_);
+  e_dot->exp_->accept(this);
+  visitId(e_dot->id_);
 
 }
 
-void Skeleton::visitETimes(ETimes *etimes)
+void Skeleton::visitENeg(ENeg *e_neg)
+{
+  /* Code For ENeg Goes Here */
+
+  e_neg->exp_->accept(this);
+
+}
+
+void Skeleton::visitEAndB(EAndB *e_and_b)
+{
+  /* Code For EAndB Goes Here */
+
+  e_and_b->exp_1->accept(this);
+  e_and_b->exp_2->accept(this);
+
+}
+
+void Skeleton::visitEOrB(EOrB *e_or_b)
+{
+  /* Code For EOrB Goes Here */
+
+  e_or_b->exp_1->accept(this);
+  e_or_b->exp_2->accept(this);
+
+}
+
+void Skeleton::visitEXOR(EXOR *exor)
+{
+  /* Code For EXOR Goes Here */
+
+  exor->exp_1->accept(this);
+  exor->exp_2->accept(this);
+
+}
+
+void Skeleton::visitEShR(EShR *e_sh_r)
+{
+  /* Code For EShR Goes Here */
+
+  e_sh_r->exp_1->accept(this);
+  e_sh_r->exp_2->accept(this);
+
+}
+
+void Skeleton::visitEShL(EShL *e_sh_l)
+{
+  /* Code For EShL Goes Here */
+
+  e_sh_l->exp_1->accept(this);
+  e_sh_l->exp_2->accept(this);
+
+}
+
+void Skeleton::visitERotR(ERotR *e_rot_r)
+{
+  /* Code For ERotR Goes Here */
+
+  e_rot_r->exp_1->accept(this);
+  e_rot_r->exp_2->accept(this);
+
+}
+
+void Skeleton::visitERotL(ERotL *e_rot_l)
+{
+  /* Code For ERotL Goes Here */
+
+  e_rot_l->exp_1->accept(this);
+  e_rot_l->exp_2->accept(this);
+
+}
+
+void Skeleton::visitETimes(ETimes *e_times)
 {
   /* Code For ETimes Goes Here */
 
-  etimes->exp_1->accept(this);
-  etimes->exp_2->accept(this);
+  e_times->exp_1->accept(this);
+  e_times->exp_2->accept(this);
 
 }
 
-void Skeleton::visitEDiv(EDiv *ediv)
+void Skeleton::visitEDiv(EDiv *e_div)
 {
   /* Code For EDiv Goes Here */
 
-  ediv->exp_1->accept(this);
-  ediv->exp_2->accept(this);
+  e_div->exp_1->accept(this);
+  e_div->exp_2->accept(this);
 
 }
 
-void Skeleton::visitEPlus(EPlus *eplus)
+void Skeleton::visitEPlus(EPlus *e_plus)
 {
   /* Code For EPlus Goes Here */
 
-  eplus->exp_1->accept(this);
-  eplus->exp_2->accept(this);
+  e_plus->exp_1->accept(this);
+  e_plus->exp_2->accept(this);
 
 }
 
-void Skeleton::visitEMinus(EMinus *eminus)
+void Skeleton::visitEMinus(EMinus *e_minus)
 {
   /* Code For EMinus Goes Here */
 
-  eminus->exp_1->accept(this);
-  eminus->exp_2->accept(this);
+  e_minus->exp_1->accept(this);
+  e_minus->exp_2->accept(this);
 
 }
 
-void Skeleton::visitELt(ELt *elt)
+void Skeleton::visitELt(ELt *e_lt)
 {
   /* Code For ELt Goes Here */
 
-  elt->exp_1->accept(this);
-  elt->exp_2->accept(this);
+  e_lt->exp_1->accept(this);
+  e_lt->exp_2->accept(this);
 
 }
 
-void Skeleton::visitEGt(EGt *egt)
+void Skeleton::visitEGt(EGt *e_gt)
 {
   /* Code For EGt Goes Here */
 
-  egt->exp_1->accept(this);
-  egt->exp_2->accept(this);
+  e_gt->exp_1->accept(this);
+  e_gt->exp_2->accept(this);
 
 }
 
-void Skeleton::visitELtEq(ELtEq *elteq)
+void Skeleton::visitELtEq(ELtEq *e_lt_eq)
 {
   /* Code For ELtEq Goes Here */
 
-  elteq->exp_1->accept(this);
-  elteq->exp_2->accept(this);
+  e_lt_eq->exp_1->accept(this);
+  e_lt_eq->exp_2->accept(this);
 
 }
 
-void Skeleton::visitEGtEq(EGtEq *egteq)
+void Skeleton::visitEGtEq(EGtEq *e_gt_eq)
 {
   /* Code For EGtEq Goes Here */
 
-  egteq->exp_1->accept(this);
-  egteq->exp_2->accept(this);
+  e_gt_eq->exp_1->accept(this);
+  e_gt_eq->exp_2->accept(this);
 
 }
 
-void Skeleton::visitEEq(EEq *eeq)
+void Skeleton::visitEEq(EEq *e_eq)
 {
   /* Code For EEq Goes Here */
 
-  eeq->exp_1->accept(this);
-  eeq->exp_2->accept(this);
+  e_eq->exp_1->accept(this);
+  e_eq->exp_2->accept(this);
 
 }
 
-void Skeleton::visitENEq(ENEq *eneq)
+void Skeleton::visitENEq(ENEq *en_eq)
 {
   /* Code For ENEq Goes Here */
 
-  eneq->exp_1->accept(this);
-  eneq->exp_2->accept(this);
+  en_eq->exp_1->accept(this);
+  en_eq->exp_2->accept(this);
 
 }
 
-void Skeleton::visitEAnd(EAnd *eand)
+void Skeleton::visitEAnd(EAnd *e_and)
 {
   /* Code For EAnd Goes Here */
 
-  eand->exp_1->accept(this);
-  eand->exp_2->accept(this);
+  e_and->exp_1->accept(this);
+  e_and->exp_2->accept(this);
 
 }
 
-void Skeleton::visitEOr(EOr *eor)
+void Skeleton::visitEOr(EOr *e_or)
 {
   /* Code For EOr Goes Here */
 
-  eor->exp_1->accept(this);
-  eor->exp_2->accept(this);
+  e_or->exp_1->accept(this);
+  e_or->exp_2->accept(this);
 
 }
 
-void Skeleton::visitPackageNameId(PackageNameId *packagenameid)
+void Skeleton::visitPackageNameId(PackageNameId *package_name_id)
 {
   /* Code For PackageNameId Goes Here */
 
-  visitId(packagenameid->id_);
+  visitId(package_name_id->id_);
 
 }
 
-void Skeleton::visitStructLiteralField1(StructLiteralField1 *structliteralfield1)
+void Skeleton::visitStructLiteralField1(StructLiteralField1 *struct_literal_field)
 {
   /* Code For StructLiteralField1 Goes Here */
 
-  visitId(structliteralfield1->id_);
-  structliteralfield1->exp_->accept(this);
+  visitId(struct_literal_field->id_);
+  struct_literal_field->exp_->accept(this);
 
 }
 
-void Skeleton::visitConstName(ConstName *constname)
+void Skeleton::visitConstName(ConstName *const_name)
 {
   /* Code For ConstName Goes Here */
 
-  visitId(constname->id_);
+  visitId(const_name->id_);
 
 }
 
-void Skeleton::visitInt(Int *int)
+void Skeleton::visitInt(Int *int_)
 {
   /* Code For Int Goes Here */
 
-  visitInteger(int->integer_);
+  visitInteger(int_->integer_);
 
 }
 
-void Skeleton::visitTyName(TyName *tyname)
+void Skeleton::visitTyName(TyName *ty_name)
 {
   /* Code For TyName Goes Here */
 
-  visitId(tyname->id_);
+  visitId(ty_name->id_);
 
 }
 
-void Skeleton::visitTyVoid(TyVoid *tyvoid)
+void Skeleton::visitTyVoid(TyVoid *ty_void)
 {
   /* Code For TyVoid Goes Here */
 
 
 }
 
-void Skeleton::visitTyType(TyType *tytype)
+void Skeleton::visitTyType(TyType *ty_type)
 {
   /* Code For TyType Goes Here */
 
 
 }
 
-void Skeleton::visitTyNameParams(TyNameParams *tynameparams)
+void Skeleton::visitTyNameParams(TyNameParams *ty_name_params)
 {
   /* Code For TyNameParams Goes Here */
 
-  visitId(tynameparams->id_);
-  tynameparams->listtemplatearg_->accept(this);
+  visitId(ty_name_params->id_);
+  ty_name_params->listtemplatearg_->accept(this);
 
 }
 
-void Skeleton::visitTyArray(TyArray *tyarray)
+void Skeleton::visitTyArray(TyArray *ty_array)
 {
   /* Code For TyArray Goes Here */
 
-  tyarray->type_->accept(this);
-  tyarray->intorname_->accept(this);
+  ty_array->type_->accept(this);
+  ty_array->intorname_->accept(this);
 
 }
 
-void Skeleton::visitTyVector(TyVector *tyvector)
+void Skeleton::visitTyVector(TyVector *ty_vector)
 {
   /* Code For TyVector Goes Here */
 
-  tyvector->type_->accept(this);
-  tyvector->intorname_->accept(this);
+  ty_vector->type_->accept(this);
+  ty_vector->intorname_->accept(this);
 
 }
 
-void Skeleton::visitTEType(TEType *tetype)
+void Skeleton::visitTEType(TEType *te_type)
 {
   /* Code For TEType Goes Here */
 
-  tetype->type_->accept(this);
+  te_type->type_->accept(this);
 
 }
 
-void Skeleton::visitTEConstExp(TEConstExp *teconstexp)
+void Skeleton::visitTEConstExp(TEConstExp *te_const_exp)
 {
   /* Code For TEConstExp Goes Here */
 
-  teconstexp->exp_->accept(this);
+  te_const_exp->exp_->accept(this);
 
 }
 
-void Skeleton::visitTemplateArg1(TemplateArg1 *templatearg1)
+void Skeleton::visitTemplateArg1(TemplateArg1 *template_arg)
 {
   /* Code For TemplateArg1 Goes Here */
 
-  visitId(templatearg1->id_);
-  templatearg1->templateexp_->accept(this);
+  visitId(template_arg->id_);
+  template_arg->templateexp_->accept(this);
 
 }
 
 
-void Skeleton::visitListDef(ListDef *listdef)
+void Skeleton::visitListDef(ListDef *list_def)
 {
-  for (ListDef::iterator i = listdef->begin() ; i != listdef->end() ; ++i)
+  for (ListDef::iterator i = list_def->begin() ; i != list_def->end() ; ++i)
   {
     (*i)->accept(this);
   }
 }
 
-void Skeleton::visitListMetaParam(ListMetaParam *listmetaparam)
+void Skeleton::visitListMetaParam(ListMetaParam *list_meta_param)
 {
-  for (ListMetaParam::iterator i = listmetaparam->begin() ; i != listmetaparam->end() ; ++i)
+  for (ListMetaParam::iterator i = list_meta_param->begin() ; i != list_meta_param->end() ; ++i)
   {
     (*i)->accept(this);
   }
 }
 
-void Skeleton::visitListModDef(ListModDef *listmoddef)
+void Skeleton::visitListModDef(ListModDef *list_mod_def)
 {
-  for (ListModDef::iterator i = listmoddef->begin() ; i != listmoddef->end() ; ++i)
+  for (ListModDef::iterator i = list_mod_def->begin() ; i != list_mod_def->end() ; ++i)
   {
     (*i)->accept(this);
   }
 }
 
-void Skeleton::visitListEventParam(ListEventParam *listeventparam)
+void Skeleton::visitListEventParam(ListEventParam *list_event_param)
 {
-  for (ListEventParam::iterator i = listeventparam->begin() ; i != listeventparam->end() ; ++i)
+  for (ListEventParam::iterator i = list_event_param->begin() ; i != list_event_param->end() ; ++i)
   {
     (*i)->accept(this);
   }
 }
 
-void Skeleton::visitListEventOrList(ListEventOrList *listeventorlist)
+void Skeleton::visitListEventOrList(ListEventOrList *list_event_or_list)
 {
-  for (ListEventOrList::iterator i = listeventorlist->begin() ; i != listeventorlist->end() ; ++i)
+  for (ListEventOrList::iterator i = list_event_or_list->begin() ; i != list_event_or_list->end() ; ++i)
   {
     (*i)->accept(this);
   }
 }
 
-void Skeleton::visitListStructDef(ListStructDef *liststructdef)
+void Skeleton::visitListStructDef(ListStructDef *list_struct_def)
 {
-  for (ListStructDef::iterator i = liststructdef->begin() ; i != liststructdef->end() ; ++i)
+  for (ListStructDef::iterator i = list_struct_def->begin() ; i != list_struct_def->end() ; ++i)
   {
     (*i)->accept(this);
   }
 }
 
-void Skeleton::visitListFuncParam(ListFuncParam *listfuncparam)
+void Skeleton::visitListFuncParam(ListFuncParam *list_func_param)
 {
-  for (ListFuncParam::iterator i = listfuncparam->begin() ; i != listfuncparam->end() ; ++i)
+  for (ListFuncParam::iterator i = list_func_param->begin() ; i != list_func_param->end() ; ++i)
   {
     (*i)->accept(this);
   }
 }
 
-void Skeleton::visitListStatement(ListStatement *liststatement)
+void Skeleton::visitListStatement(ListStatement *list_statement)
 {
-  for (ListStatement::iterator i = liststatement->begin() ; i != liststatement->end() ; ++i)
+  for (ListStatement::iterator i = list_statement->begin() ; i != list_statement->end() ; ++i)
   {
     (*i)->accept(this);
   }
 }
 
-void Skeleton::visitListBlockAttr(ListBlockAttr *listblockattr)
+void Skeleton::visitListBlockAttr(ListBlockAttr *list_block_attr)
 {
-  for (ListBlockAttr::iterator i = listblockattr->begin() ; i != listblockattr->end() ; ++i)
+  for (ListBlockAttr::iterator i = list_block_attr->begin() ; i != list_block_attr->end() ; ++i)
   {
     (*i)->accept(this);
   }
 }
 
-void Skeleton::visitListExp(ListExp *listexp)
+void Skeleton::visitListExp(ListExp *list_exp)
 {
-  for (ListExp::iterator i = listexp->begin() ; i != listexp->end() ; ++i)
+  for (ListExp::iterator i = list_exp->begin() ; i != list_exp->end() ; ++i)
   {
     (*i)->accept(this);
   }
 }
 
-void Skeleton::visitListPackageName(ListPackageName *listpackagename)
+void Skeleton::visitListPackageName(ListPackageName *list_package_name)
 {
-  for (ListPackageName::iterator i = listpackagename->begin() ; i != listpackagename->end() ; ++i)
+  for (ListPackageName::iterator i = list_package_name->begin() ; i != list_package_name->end() ; ++i)
   {
     (*i)->accept(this);
   }
 }
 
-void Skeleton::visitListStructLiteralField(ListStructLiteralField *liststructliteralfield)
+void Skeleton::visitListStructLiteralField(ListStructLiteralField *list_struct_literal_field)
 {
-  for (ListStructLiteralField::iterator i = liststructliteralfield->begin() ; i != liststructliteralfield->end() ; ++i)
+  for (ListStructLiteralField::iterator i = list_struct_literal_field->begin() ; i != list_struct_literal_field->end() ; ++i)
   {
     (*i)->accept(this);
   }
 }
 
-void Skeleton::visitListTemplateArg(ListTemplateArg *listtemplatearg)
+void Skeleton::visitListTemplateArg(ListTemplateArg *list_template_arg)
 {
-  for (ListTemplateArg::iterator i = listtemplatearg->begin() ; i != listtemplatearg->end() ; ++i)
+  for (ListTemplateArg::iterator i = list_template_arg->begin() ; i != list_template_arg->end() ; ++i)
   {
     (*i)->accept(this);
   }
@@ -969,6 +1048,11 @@ void Skeleton::visitListTemplateArg(ListTemplateArg *listtemplatearg)
 void Skeleton::visitId(Id x)
 {
   /* Code for Id Goes Here */
+}
+
+void Skeleton::visitHexInteger(HexInteger x)
+{
+  /* Code for HexInteger Goes Here */
 }
 
 void Skeleton::visitInteger(Integer x)

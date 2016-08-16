@@ -98,6 +98,7 @@ public:
   void visitETrue(ETrue *p);
   void visitEFalse(EFalse *p);
   void visitEInt(EInt *p);
+  void visitEHex(EHex *p);
   void visitEDouble(EDouble *p);
   void visitEString(EString *p);
   void visitEStructLiteral(EStructLiteral *p);
@@ -106,6 +107,14 @@ public:
   void visitEArrAcc(EArrAcc *p);
   void visitESlice(ESlice *p);
   void visitEDot(EDot *p);
+  void visitENeg(ENeg *p);
+  void visitEAndB(EAndB *p);
+  void visitEOrB(EOrB *p);
+  void visitEXOR(EXOR *p);
+  void visitEShR(EShR *p);
+  void visitEShL(EShL *p);
+  void visitERotR(ERotR *p);
+  void visitERotL(ERotL *p);
   void visitETimes(ETimes *p);
   void visitEDiv(EDiv *p);
   void visitEPlus(EPlus *p);
@@ -145,12 +154,13 @@ public:
   void visitListStructLiteralField(ListStructLiteralField *p);
   void visitListTemplateArg(ListTemplateArg *p);
 
-  void visit"Id"("Id" x);
-  void visit"Integer"("Integer" x);
-  void visit"Char"("Char" x);
-  void visit"Double"("Double" x);
-  void visit"String"("String" x);
-  void visit"Ident"("Ident" x);
+  void visitId(Id x);
+  void visitHexInteger(HexInteger x);
+  void visitInteger(Integer x);
+  void visitChar(Char x);
+  void visitDouble(Double x);
+  void visitString(String x);
+  void visitIdent(Ident x);
 
 };
 

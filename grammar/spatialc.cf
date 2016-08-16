@@ -92,6 +92,7 @@ EVoid.   Exp15 ::= "void" ;
 ETrue.   Exp15 ::= "true" ;
 EFalse.  Exp15 ::= "false" ;
 EInt.    Exp15 ::= Integer ;
+EHex.    Exp15 ::= HexInteger ;
 EDouble. Exp15 ::= Double ;
 EString. Exp15 ::= String ;
 EStructLiteral. Exp15 ::= "{" Type ":" [StructLiteralField] "}" ;
@@ -101,6 +102,17 @@ EId.     Exp15 ::= Id ;
 EArrAcc. Exp15  ::= Exp15 "[" Exp "]" ;
 ESlice.  Exp15  ::= Exp15 "[" Exp ".." Exp "]" ;
 EDot.    Exp15  ::= Exp15  "." Id ;
+
+
+ENeg.    Exp14  ::= "~"  Exp15 ;
+
+EAndB.   Exp13  ::= Exp13 "&"  Exp14 ;
+EOrB.    Exp13  ::= Exp13 "|"  Exp14 ;
+EXOR.    Exp13  ::= Exp13 "^"  Exp14 ;
+EShR.    Exp13  ::= Exp13 ">>"  Exp14 ;
+EShL.    Exp13  ::= Exp13 "<<"  Exp14 ;
+ERotR.   Exp13  ::= Exp13 ">>>"  Exp14 ;
+ERotL.   Exp13  ::= Exp13 "<<<"  Exp14 ;
 
 ETimes.  Exp12  ::= Exp12 "*"  Exp13 ;
 EDiv.    Exp12  ::= Exp12 "/"  Exp13 ;
@@ -126,6 +138,7 @@ rules StructLiteralField ::= Id ":" Exp ;
 separator StructLiteralField "," ;
 
 token Id ((letter | '_') (letter | digit | '_')*) ;
+token HexInteger {"0x"} ["0123456789ABCDEFabcdef"]+ ;
 
 ConstName. IntOrName ::= Id ;
 Int.       IntOrName ::= Integer ;

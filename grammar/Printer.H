@@ -122,6 +122,7 @@ void render(char *s);
   void visitETrue(ETrue *p);
   void visitEFalse(EFalse *p);
   void visitEInt(EInt *p);
+  void visitEHex(EHex *p);
   void visitEDouble(EDouble *p);
   void visitEString(EString *p);
   void visitEStructLiteral(EStructLiteral *p);
@@ -130,6 +131,14 @@ void render(char *s);
   void visitEArrAcc(EArrAcc *p);
   void visitESlice(ESlice *p);
   void visitEDot(EDot *p);
+  void visitENeg(ENeg *p);
+  void visitEAndB(EAndB *p);
+  void visitEOrB(EOrB *p);
+  void visitEXOR(EXOR *p);
+  void visitEShR(EShR *p);
+  void visitEShL(EShL *p);
+  void visitERotR(ERotR *p);
+  void visitERotL(ERotL *p);
   void visitETimes(ETimes *p);
   void visitEDiv(EDiv *p);
   void visitEPlus(EPlus *p);
@@ -172,6 +181,7 @@ void render(char *s);
   void visitString(String s);
   void visitIdent(String s);
   void visitId(String s);
+  void visitHexInteger(String s);
  protected:
   void inline bufAppend(const char *s)
   {
@@ -335,6 +345,7 @@ class ShowAbsyn : public Visitor
   void visitETrue(ETrue *p);
   void visitEFalse(EFalse *p);
   void visitEInt(EInt *p);
+  void visitEHex(EHex *p);
   void visitEDouble(EDouble *p);
   void visitEString(EString *p);
   void visitEStructLiteral(EStructLiteral *p);
@@ -343,6 +354,14 @@ class ShowAbsyn : public Visitor
   void visitEArrAcc(EArrAcc *p);
   void visitESlice(ESlice *p);
   void visitEDot(EDot *p);
+  void visitENeg(ENeg *p);
+  void visitEAndB(EAndB *p);
+  void visitEOrB(EOrB *p);
+  void visitEXOR(EXOR *p);
+  void visitEShR(EShR *p);
+  void visitEShL(EShL *p);
+  void visitERotR(ERotR *p);
+  void visitERotL(ERotL *p);
   void visitETimes(ETimes *p);
   void visitEDiv(EDiv *p);
   void visitEPlus(EPlus *p);
@@ -385,6 +404,7 @@ class ShowAbsyn : public Visitor
   void visitString(String s);
   void visitIdent(String s);
   void visitId(String s);
+  void visitHexInteger(String s);
  protected:
   void inline bufAppend(const char *s)
   {

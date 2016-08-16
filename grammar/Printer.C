@@ -1116,6 +1116,18 @@ void PrintAbsyn::visitEInt(EInt *p)
   _i_ = oldi;
 }
 
+void PrintAbsyn::visitEHex(EHex *p)
+{
+  int oldi = _i_;
+  if (oldi > 15) render(_L_PAREN);
+
+  visitIdent(p->hexinteger_);
+
+  if (oldi > 15) render(_R_PAREN);
+
+  _i_ = oldi;
+}
+
 void PrintAbsyn::visitEDouble(EDouble *p)
 {
   int oldi = _i_;
@@ -1224,6 +1236,117 @@ void PrintAbsyn::visitEDot(EDot *p)
   visitIdent(p->id_);
 
   if (oldi > 15) render(_R_PAREN);
+
+  _i_ = oldi;
+}
+
+void PrintAbsyn::visitENeg(ENeg *p)
+{
+  int oldi = _i_;
+  if (oldi > 14) render(_L_PAREN);
+
+  render('~');
+  _i_ = 15; p->exp_->accept(this);
+
+  if (oldi > 14) render(_R_PAREN);
+
+  _i_ = oldi;
+}
+
+void PrintAbsyn::visitEAndB(EAndB *p)
+{
+  int oldi = _i_;
+  if (oldi > 13) render(_L_PAREN);
+
+  _i_ = 13; p->exp_1->accept(this);
+  render('&');
+  _i_ = 14; p->exp_2->accept(this);
+
+  if (oldi > 13) render(_R_PAREN);
+
+  _i_ = oldi;
+}
+
+void PrintAbsyn::visitEOrB(EOrB *p)
+{
+  int oldi = _i_;
+  if (oldi > 13) render(_L_PAREN);
+
+  _i_ = 13; p->exp_1->accept(this);
+  render('|');
+  _i_ = 14; p->exp_2->accept(this);
+
+  if (oldi > 13) render(_R_PAREN);
+
+  _i_ = oldi;
+}
+
+void PrintAbsyn::visitEXOR(EXOR *p)
+{
+  int oldi = _i_;
+  if (oldi > 13) render(_L_PAREN);
+
+  _i_ = 13; p->exp_1->accept(this);
+  render('^');
+  _i_ = 14; p->exp_2->accept(this);
+
+  if (oldi > 13) render(_R_PAREN);
+
+  _i_ = oldi;
+}
+
+void PrintAbsyn::visitEShR(EShR *p)
+{
+  int oldi = _i_;
+  if (oldi > 13) render(_L_PAREN);
+
+  _i_ = 13; p->exp_1->accept(this);
+  render(">>");
+  _i_ = 14; p->exp_2->accept(this);
+
+  if (oldi > 13) render(_R_PAREN);
+
+  _i_ = oldi;
+}
+
+void PrintAbsyn::visitEShL(EShL *p)
+{
+  int oldi = _i_;
+  if (oldi > 13) render(_L_PAREN);
+
+  _i_ = 13; p->exp_1->accept(this);
+  render("<<");
+  _i_ = 14; p->exp_2->accept(this);
+
+  if (oldi > 13) render(_R_PAREN);
+
+  _i_ = oldi;
+}
+
+void PrintAbsyn::visitERotR(ERotR *p)
+{
+  int oldi = _i_;
+  if (oldi > 13) render(_L_PAREN);
+
+  _i_ = 13; p->exp_1->accept(this);
+  render(">>>");
+  _i_ = 14; p->exp_2->accept(this);
+
+  if (oldi > 13) render(_R_PAREN);
+
+  _i_ = oldi;
+}
+
+void PrintAbsyn::visitERotL(ERotL *p)
+{
+  int oldi = _i_;
+  if (oldi > 13) render(_L_PAREN);
+
+  _i_ = 13; p->exp_1->accept(this);
+  render("<<<");
+  _i_ = 14; p->exp_2->accept(this);
+
+  if (oldi > 13) render(_R_PAREN);
 
   _i_ = oldi;
 }
@@ -1641,6 +1764,12 @@ void PrintAbsyn::visitIdent(String s)
 }
 
 void PrintAbsyn::visitId(String s)
+{
+  render(s);
+}
+
+
+void PrintAbsyn::visitHexInteger(String s)
 {
   render(s);
 }
@@ -2490,6 +2619,14 @@ void ShowAbsyn::visitEInt(EInt *p)
   visitInteger(p->integer_);
   bufAppend(')');
 }
+void ShowAbsyn::visitEHex(EHex *p)
+{
+  bufAppend('(');
+  bufAppend("EHex");
+  bufAppend(' ');
+  visitIdent(p->hexinteger_);
+  bufAppend(')');
+}
 void ShowAbsyn::visitEDouble(EDouble *p)
 {
   bufAppend('(');
@@ -2574,6 +2711,86 @@ void ShowAbsyn::visitEDot(EDot *p)
   bufAppend(']');
   bufAppend(' ');
   visitIdent(p->id_);
+  bufAppend(')');
+}
+void ShowAbsyn::visitENeg(ENeg *p)
+{
+  bufAppend('(');
+  bufAppend("ENeg");
+  bufAppend(' ');
+  bufAppend('[');
+  if (p->exp_)  p->exp_->accept(this);
+  bufAppend(']');
+  bufAppend(')');
+}
+void ShowAbsyn::visitEAndB(EAndB *p)
+{
+  bufAppend('(');
+  bufAppend("EAndB");
+  bufAppend(' ');
+  p->exp_1->accept(this);
+  bufAppend(' ');
+  p->exp_2->accept(this);
+  bufAppend(')');
+}
+void ShowAbsyn::visitEOrB(EOrB *p)
+{
+  bufAppend('(');
+  bufAppend("EOrB");
+  bufAppend(' ');
+  p->exp_1->accept(this);
+  bufAppend(' ');
+  p->exp_2->accept(this);
+  bufAppend(')');
+}
+void ShowAbsyn::visitEXOR(EXOR *p)
+{
+  bufAppend('(');
+  bufAppend("EXOR");
+  bufAppend(' ');
+  p->exp_1->accept(this);
+  bufAppend(' ');
+  p->exp_2->accept(this);
+  bufAppend(')');
+}
+void ShowAbsyn::visitEShR(EShR *p)
+{
+  bufAppend('(');
+  bufAppend("EShR");
+  bufAppend(' ');
+  p->exp_1->accept(this);
+  bufAppend(' ');
+  p->exp_2->accept(this);
+  bufAppend(')');
+}
+void ShowAbsyn::visitEShL(EShL *p)
+{
+  bufAppend('(');
+  bufAppend("EShL");
+  bufAppend(' ');
+  p->exp_1->accept(this);
+  bufAppend(' ');
+  p->exp_2->accept(this);
+  bufAppend(')');
+}
+void ShowAbsyn::visitERotR(ERotR *p)
+{
+  bufAppend('(');
+  bufAppend("ERotR");
+  bufAppend(' ');
+  p->exp_1->accept(this);
+  bufAppend(' ');
+  p->exp_2->accept(this);
+  bufAppend(')');
+}
+void ShowAbsyn::visitERotL(ERotL *p)
+{
+  bufAppend('(');
+  bufAppend("ERotL");
+  bufAppend(' ');
+  p->exp_1->accept(this);
+  bufAppend(' ');
+  p->exp_2->accept(this);
   bufAppend(')');
 }
 void ShowAbsyn::visitETimes(ETimes *p)
@@ -2903,6 +3120,14 @@ void ShowAbsyn::visitIdent(String s)
 }
 
 void ShowAbsyn::visitId(String s)
+{
+  bufAppend('\"');
+  bufAppend(s);
+  bufAppend('\"');
+}
+
+
+void ShowAbsyn::visitHexInteger(String s)
 {
   bufAppend('\"');
   bufAppend(s);
